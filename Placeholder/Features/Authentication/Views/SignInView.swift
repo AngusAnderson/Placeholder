@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 struct SignInView: View {
-    @StateObject private var auth = AuthViewModel()
+    @ObservedObject var auth = AuthViewModel()
 
     var body: some View {
         ZStack {
