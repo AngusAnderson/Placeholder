@@ -3,14 +3,6 @@ import Combine
 import Foundation
 import Supabase
 
-nonisolated struct Profile: Decodable, Sendable {
-    let onboardingCompleted: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case onboardingCompleted = "onboarding_completed"
-    }
-}
-
 @MainActor
 final class AuthViewModel: NSObject, ObservableObject {
     @Published private(set) var session: Session?
@@ -20,6 +12,7 @@ final class AuthViewModel: NSObject, ObservableObject {
     @Published private(set) var onboardingCompleted: Bool?
 
     private var currentNonce: String?
+    private let profileService = ProfileService()
 
     func prepareAppleRequest(
         _ request: ASAuthorizationAppleIDRequest
@@ -52,6 +45,10 @@ final class AuthViewModel: NSObject, ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        defer {
+            isLoading = false
+        }
+
         do {
             let newSession = try await supabase.auth.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(
@@ -61,7 +58,7 @@ final class AuthViewModel: NSObject, ObservableObject {
                 )
             )
 
-            self.session = newSession
+            session = newSession
             currentNonce = nil
 
             try await fetchProfile()
@@ -69,13 +66,15 @@ final class AuthViewModel: NSObject, ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-
-        isLoading = false
     }
 
     func restoreSession() async {
         isLoading = true
         errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
 
         do {
             let existingSession = try await supabase.auth.session
@@ -88,74 +87,46 @@ final class AuthViewModel: NSObject, ObservableObject {
             session = nil
             onboardingCompleted = nil
         }
-
-        isLoading = false
-    }
-
-    private func fetchProfile() async throws {
-        guard let userId = session?.user.id else {
-            throw AuthError.noAuthenticatedUser
-        }
-
-        let profile: Profile = try await supabase
-            .from("profiles")
-            .select("onboarding_completed")
-            .eq("id", value: userId)
-            .single()
-            .execute()
-            .value
-
-        onboardingCompleted = profile.onboardingCompleted
     }
 
     func completeOnboarding() async {
-        guard let userId = session?.user.id else {
-            errorMessage = "No authenticated user found."
-            return
-        }
-
         isLoading = true
         errorMessage = nil
 
-        do {
-            try await supabase
-                .from("profiles")
-                .update([
-                    "onboarding_completed": true
-                ])
-                .eq("id", value: userId)
-                .execute()
+        defer {
+            isLoading = false
+        }
 
+        do {
+            try await profileService.completeOnboarding()
             onboardingCompleted = true
 
         } catch {
             errorMessage = error.localizedDescription
         }
-
-        isLoading = false
     }
 
     func signOut() async {
+        isLoading = true
+        errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
+
         do {
             try await supabase.auth.signOut()
 
             session = nil
             onboardingCompleted = nil
-            errorMessage = nil
 
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    enum AuthError: LocalizedError {
-        case noAuthenticatedUser
-
-        var errorDescription: String? {
-            switch self {
-            case .noAuthenticatedUser:
-                return "No authenticated user found."
-            }
-        }
+    private func fetchProfile() async throws {
+        let profile = try await profileService.fetchCurrentProfile()
+        onboardingCompleted = profile.onboardingCompleted
     }
 }

@@ -13,9 +13,9 @@ struct OnboardingProgressView: View {
             HStack {
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(height: 5)
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 12, height: 12)
 
                         Capsule()
                             .fill(Color.green)
@@ -29,7 +29,7 @@ struct OnboardingProgressView: View {
 
                 Circle()
                     .fill(Color.red)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 12, height: 12)
             }
 
             HStack {

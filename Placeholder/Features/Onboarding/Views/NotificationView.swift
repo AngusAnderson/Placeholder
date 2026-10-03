@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct NameView: View {
+struct NotificationView: View {
     @StateObject private var onboarding = OnboardingViewModel()
     @State private var showNextView = false
 
@@ -16,33 +16,16 @@ struct NameView: View {
                         .foregroundStyle(.black)
 
                     OnboardingProgressView(
-                        progress: 0.2,
-                        step: 1
+                        progress: 0.8,
+                        step: 4
                     )
                     .padding(.top, 18)
 
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("What’s your name?")
+                        Text("Allow notifications")
                             .font(.system(size: 30, weight: .medium))
                             .foregroundStyle(.black)
 
-                        VStack(spacing: 20) {
-                            NameInputField(
-                                title: "First Name",
-                                text: $onboarding.firstName
-                            )
-
-                            NameInputField(
-                                title: "Last Name",
-                                text: $onboarding.surname
-                            )
-                        }
-
-                        if let errorMessage = onboarding.errorMessage {
-                            Text(errorMessage)
-                                .font(.footnote)
-                                .foregroundStyle(.red)
-                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 48)

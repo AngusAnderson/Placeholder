@@ -297,6 +297,8 @@
 				INFOPLIST_FILE = Placeholder/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Placeholder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Placeholder uses your location in the background during an active activity session, so it can continue recording progress when the app is not on screen.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Placeholder uses your location to record activity and calculate progress while you use the app.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -341,6 +343,8 @@
 				INFOPLIST_FILE = Placeholder/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Placeholder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Placeholder uses your location in the background during an active activity session, so it can continue recording progress when the app is not on screen.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Placeholder uses your location to record activity and calculate progress while you use the app.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
