@@ -12,7 +12,7 @@ struct RootView: View {
             } else if auth.onboardingCompleted == nil {
                 ProgressView("Loading...")
             } else if auth.onboardingCompleted == false {
-                NameView()
+                NameView(auth: auth)
             } else {
                 HomeView()
             }

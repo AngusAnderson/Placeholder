@@ -6,6 +6,8 @@ struct LocationView: View {
         LocationPermissionManager()
 
     @State private var showNextView = false
+    
+    @ObservedObject var auth: AuthViewModel
 
     var body: some View {
         ZStack {
@@ -73,7 +75,7 @@ struct LocationView: View {
         }
         .navigationBarBackButtonHidden()
         .navigationDestination(isPresented: $showNextView) {
-            ProfilePictureView()
+            ProfilePictureView(auth: auth)
         }
         .onAppear {
             locationPermission.requestInitialPermission()

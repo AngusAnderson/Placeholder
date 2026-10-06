@@ -3,6 +3,8 @@ import SwiftUI
 struct NameView: View {
     @StateObject private var onboarding = OnboardingViewModel()
     @State private var showNextView = false
+    
+    @ObservedObject var auth: AuthViewModel
 
     var body: some View {
         NavigationStack {
@@ -71,7 +73,7 @@ struct NameView: View {
             }
             .navigationBarBackButtonHidden()
             .navigationDestination(isPresented: $showNextView) {
-                LocationView()
+                LocationView(auth: auth)
             }
         }
     }

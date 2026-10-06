@@ -9,6 +9,8 @@ struct ProfilePictureView: View {
     @State private var showNextView = false
     @State private var selectedImage: UIImage?
     @State private var imageSelection: PhotosPickerItem?
+    
+    @ObservedObject var auth: AuthViewModel
 
     var body: some View {
         NavigationStack {
@@ -117,7 +119,7 @@ struct ProfilePictureView: View {
             .navigationDestination(
                 isPresented: $showNextView
             ) {
-                NotificationView()
+                NotificationView(auth: auth)
             }
             .onChange(of: imageSelection) {
                 Task {
