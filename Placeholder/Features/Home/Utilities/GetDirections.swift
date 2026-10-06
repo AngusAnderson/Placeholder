@@ -1,11 +1,15 @@
+import CoreLocation
 import MapKit
+import SwiftUI
 
 extension MapView {
+
     func GetDirections(
         to destination: CLLocationCoordinate2D
     ) {
         Task {
             guard let userLocation = await GetUserLocation() else {
+                print("Could not get the user's location.")
                 return
             }
 
@@ -31,6 +35,12 @@ extension MapView {
                 ).calculate()
 
                 route = directions.routes.first
+
+                if let route {
+                    cameraPosition = .rect(
+                        route.polyline.boundingMapRect
+                    )
+                }
             } catch {
                 print(
                     "Cannot calculate directions: "

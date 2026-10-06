@@ -2,18 +2,27 @@ import CoreLocation
 import MapKit
 
 extension MapView {
+
     func GetUserLocation() async -> CLLocationCoordinate2D? {
-        let updates = CLLocationUpdate.liveUpdates()
-
         do {
-            let update = try await updates.first {
-                $0.location?.coordinate != nil
-            }
+            for try await update in CLLocationUpdate.liveUpdates() {
 
-            return update?.location?.coordinate
+                if update.authorizationDenied {
+                    print("Location permission was denied.")
+                    return nil
+                }
+
+                if let location = update.location {
+                    return location.coordinate
+                }
+            }
         } catch {
-            print("Cannot get the user location")
-            return nil
+            print(
+                "Cannot get the user location: "
+                + error.localizedDescription
+            )
         }
+
+        return nil
     }
 }

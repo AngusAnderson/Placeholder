@@ -1,6 +1,7 @@
 import CoreLocation
 
 extension CLLocationCoordinate2D {
+
     static let appleHQ = CLLocationCoordinate2D(
         latitude: 37.3346,
         longitude: -122.0090

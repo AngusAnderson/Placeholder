@@ -1,6 +1,8 @@
+import CoreLocation
 import MapKit
 
 extension MapView {
+
     func GetLookAroundScene(
         from coordinate: CLLocationCoordinate2D
     ) async -> MKLookAroundScene? {

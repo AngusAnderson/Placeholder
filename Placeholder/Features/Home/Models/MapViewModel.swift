@@ -55,7 +55,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
         DispatchQueue.main.async {
-            // trueHeading is relative to magnetic north; use magneticHeading if you prefer
             self.userHeading = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
         }
     }
