@@ -23,10 +23,12 @@ struct RootView: View {
                 NameView(auth: auth)
 
             } else if locationPermission.isAlwaysAuthorized {
-                HomeView()
+                HomeView(auth: auth)
 
             } else {
-                LocationRequiredView()
+                LocationRequiredView(
+                        locationPermission: locationPermission
+                    )
             }
         }
         .task {

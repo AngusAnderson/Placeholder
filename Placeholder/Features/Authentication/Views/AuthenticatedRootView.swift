@@ -10,11 +10,13 @@ struct AuthenticatedRootView: View {
 
     var body: some View {
         Group {
-            if let session = auth.session {
+            if auth.session != nil {
                 if locationPermission.isAlwaysAuthorized {
-                    HomeView()
+                    HomeView(auth: auth)
                 } else {
-                    LocationRequiredView()
+                    LocationRequiredView(
+                        locationPermission: locationPermission
+                    )
                 }
             } else {
                 SignInView(auth: auth)
@@ -29,15 +31,6 @@ struct AuthenticatedRootView: View {
             }
 
             locationPermission.refreshAuthorizationStatus()
-        }
-        .onChange(
-            of: locationPermission.isAlwaysAuthorized
-        ) { _, isAuthorized in
-            guard isAuthorized else {
-                return
-            }
-
-            print("Always location permission restored.")
         }
     }
 }

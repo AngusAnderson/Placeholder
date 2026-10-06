@@ -99,7 +99,7 @@ struct NotificationView: View {
             .navigationDestination(
                 isPresented: $showHomeView
             ) {
-                HomeView()
+                HomeView(auth: auth)
             }
             .task {
                 await notificationPermission.requestPermission()

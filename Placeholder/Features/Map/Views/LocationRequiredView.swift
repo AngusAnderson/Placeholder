@@ -1,10 +1,9 @@
-import CoreLocation
 import SwiftUI
 import UIKit
 
 struct LocationRequiredView: View {
-    @StateObject private var locationPermission =
-        LocationPermissionManager()
+    @ObservedObject var locationPermission:
+        LocationPermissionManager
 
     var body: some View {
         ZStack {
@@ -64,9 +63,6 @@ struct LocationRequiredView: View {
                 Spacer()
             }
             .padding(.horizontal, 28)
-        }
-        .onAppear {
-            locationPermission.refreshAuthorizationStatus()
         }
     }
 
