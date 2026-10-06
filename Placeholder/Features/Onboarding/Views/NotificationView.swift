@@ -32,24 +32,10 @@ struct NotificationView: View {
 
                     Spacer()
 
-                    Button {
-                        saveAndContinue()
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(.black)
-                                .frame(width: 54, height: 54)
-
-                            if onboarding.isSaving {
-                                ProgressView()
-                                    .tint(.white)
-                            } else {
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 22, weight: .medium))
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                    }
+                    NextButton(
+                        onboarding: onboarding,
+                        showNextView: $showNextView
+                    )
                     .disabled(
                         !onboarding.canContinueFromNameScreen ||
                         onboarding.isSaving

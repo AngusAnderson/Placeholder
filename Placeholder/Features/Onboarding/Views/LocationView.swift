@@ -5,6 +5,7 @@ struct LocationView: View {
     @StateObject private var locationPermission =
         LocationPermissionManager()
 
+    @StateObject private var onboarding = OnboardingViewModel()
     @State private var showNextView = false
 
     var body: some View {
@@ -43,19 +44,10 @@ struct LocationView: View {
 
                 Spacer()
 
-                Button {
-                    showNextView = true
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(.black)
-                            .frame(width: 54, height: 54)
-
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 22, weight: .medium))
-                            .foregroundStyle(.white)
-                    }
-                }
+                NextButton(
+                    onboarding: onboarding,
+                    showNextView: $showNextView
+                )
                 .disabled(!locationPermission.isAlwaysAuthorized)
                 .opacity(
                     locationPermission.isAlwaysAuthorized
