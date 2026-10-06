@@ -39,11 +39,13 @@ struct ProfilePictureService {
             throw ProfilePictureServiceError.invalidImage
         }
 
-        let user = try await currentUser()
+        let session = try await supabase.auth.session
+        let user = session.user
 
-        let path = "\(user.id.uuidString)/profile.\(fileExtension)"
+        let userID = user.id.uuidString.lowercased()
+        let path = "\(userID)/profile.\(fileExtension)"
 
-        print("Authenticated user ID: \(user.id)")
+        print("Authenticated user ID: \(userID)")
         print("Avatar upload path: \(path)")
 
         try await supabase.storage
@@ -56,7 +58,7 @@ struct ProfilePictureService {
                     contentType: contentType(
                         for: fileExtension
                     ),
-                    upsert: false
+                    upsert: true
                 )
             )
 
@@ -76,7 +78,8 @@ struct ProfilePictureService {
     func deleteProfilePicture(
         path: String
     ) async throws {
-        let user = try await currentUser()
+        let session = try await supabase.auth.session
+        let user = session.user
 
         try await supabase.storage
             .from(bucketName)
@@ -91,14 +94,6 @@ struct ProfilePictureService {
             .update(update)
             .eq("id", value: user.id)
             .execute()
-    }
-
-    private func currentUser() async throws -> User {
-        do {
-            return try await supabase.auth.user()
-        } catch {
-            throw ProfilePictureServiceError.noAuthenticatedUser
-        }
     }
 
     private func contentType(

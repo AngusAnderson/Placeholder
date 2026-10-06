@@ -29,7 +29,12 @@ struct ProfilePictureView: View {
 
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Add a profile picture")
-                            .font(.system(size: 30, weight: .medium))
+                            .font(
+                                .system(
+                                    size: 30,
+                                    weight: .medium
+                                )
+                            )
                             .foregroundStyle(.black)
                     }
                     .frame(
@@ -40,8 +45,7 @@ struct ProfilePictureView: View {
 
                     PhotosPicker(
                         selection: $imageSelection,
-                        matching: .images,
-                        photoLibrary: .shared()
+                        matching: .images
                     ) {
                         imagePreview
                     }
@@ -182,7 +186,6 @@ struct ProfilePictureView: View {
                 selectedImage = image
                 onboarding.errorMessage = nil
             }
-
         } catch {
             await MainActor.run {
                 onboarding.errorMessage =
@@ -197,9 +200,10 @@ struct ProfilePictureView: View {
         }
 
         Task {
-            let didUpload = await onboarding.uploadProfilePicture(
-                image: selectedImage
-            )
+            let didUpload = await onboarding
+                .uploadProfilePicture(
+                    image: selectedImage
+                )
 
             if didUpload {
                 showNextView = true

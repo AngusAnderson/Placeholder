@@ -46,7 +46,6 @@ final class OnboardingViewModel: ObservableObject {
             )
 
             return true
-
         } catch {
             errorMessage = error.localizedDescription
             return false
@@ -57,7 +56,8 @@ final class OnboardingViewModel: ObservableObject {
         image: UIImage?
     ) async -> Bool {
         guard let image else {
-            return true
+            errorMessage = "Please select a profile picture."
+            return false
         }
 
         guard let imageData = image.jpegData(
@@ -87,7 +87,6 @@ final class OnboardingViewModel: ObservableObject {
 
             profilePicturePath = path
             return true
-
         } catch {
             errorMessage = error.localizedDescription
             return false
