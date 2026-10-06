@@ -1,10 +1,12 @@
-import SwiftUI
 import PhotosUI
+import SwiftUI
+import UIKit
 
 struct ProfilePictureView: View {
-    @StateObject private var onboarding = OnboardingViewModel()
+    @StateObject private var onboarding =
+        OnboardingViewModel()
+
     @State private var showNextView = false
-    
     @State private var selectedImage: UIImage?
     @State private var imageSelection: PhotosPickerItem?
 
@@ -29,97 +31,179 @@ struct ProfilePictureView: View {
                         Text("Add a profile picture")
                             .font(.system(size: 30, weight: .medium))
                             .foregroundStyle(.black)
-
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
                     .padding(.top, 48)
-                    
-                    ZStack {
-                        if let uiImage = selectedImage {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity, maxHeight: 200)
-                                .clipShape(RoundedRectangle(cornerRadius: 20))
-                        } else {
-//                            Rectangle()
-//                                .fill(Color(.white))
-//                                .frame(maxWidth: .infinity, maxHeight: 200)
-//                                .overlay(
-//                                    Text("No image selected")
-//                                        .foregroundStyle(Color(hex: "#000"))
-//                                )
-//                                .clipShape(RoundedRectangle(cornerRadius: 20))
-                            
-                            ZStack {
-                                PhotosPicker(selection: $imageSelection, matching: .images) {
-                                    Text(selectedImage == nil ? "Choose Image" : "Change Image")
-                                        .frame(maxWidth: .infinity, maxHeight: 200)
-                                        .padding()
-                                        .background(Color(hex: "#fff"))
-                                        .foregroundStyle(Color(hex: "#000"))
-                                        .clipShape(RoundedRectangle(cornerRadius: 20))
-                                    
-                                }
-                                .onChange(of: imageSelection) {
-                                    Task {
-                                        await loadImage()
-                                    }
-                                }
-                            }
-                            
-                        }
+
+                    PhotosPicker(
+                        selection: $imageSelection,
+                        matching: .images,
+                        photoLibrary: .shared()
+                    ) {
+                        imagePreview
                     }
+                    .buttonStyle(.plain)
+                    .padding(.top, 20)
+
+                    if let errorMessage = onboarding.errorMessage {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .padding(.top, 10)
+                    }
+
+                    Button {
+                        showNextView = true
+                    } label: {
+                        Text("Skip for now")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.black)
+                            .opacity(0.7)
+                    }
+                    .padding(.top, 10)
 
                     Spacer()
 
-                    NextButton(
-                        onboarding: onboarding,
-                        showNextView: $showNextView
-                    )
+                    Button {
+                        uploadAndContinue()
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(.black)
+                                .frame(width: 54, height: 54)
+
+                            if onboarding.isUploadingImage {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "arrow.right")
+                                    .font(
+                                        .system(
+                                            size: 22,
+                                            weight: .medium
+                                        )
+                                    )
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                    }
                     .disabled(
-                        !onboarding.canContinueFromNameScreen ||
-                        onboarding.isSaving
+                        selectedImage == nil ||
+                        onboarding.isUploadingImage
                     )
                     .opacity(
-                        onboarding.canContinueFromNameScreen &&
-                        !onboarding.isSaving
+                        selectedImage != nil &&
+                        !onboarding.isUploadingImage
                             ? 1
                             : 0.4
                     )
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .trailing
+                    )
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
                 .padding(.bottom, 16)
             }
             .navigationBarBackButtonHidden()
-            .navigationDestination(isPresented: $showNextView) {
-                LocationView()
+            .navigationDestination(
+                isPresented: $showNextView
+            ) {
+                NotificationView()
+            }
+            .onChange(of: imageSelection) {
+                Task {
+                    await loadImage()
+                }
             }
         }
     }
 
-    private func saveAndContinue() {
-        Task {
-            let wasSaved = await onboarding.saveName()
+    @ViewBuilder
+    private var imagePreview: some View {
+        if let selectedImage {
+            Image(uiImage: selectedImage)
+                .resizable()
+                .scaledToFill()
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: 375,
+                    maxHeight: 375
+                )
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: 20,
+                        style: .continuous
+                    )
+                )
+                .contentShape(
+                    RoundedRectangle(
+                        cornerRadius: 20,
+                        style: .continuous
+                    )
+                )
+        } else {
+            Image(systemName: "photo.fill")
+                .font(.system(size: 50))
+                .foregroundStyle(.black)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: 375,
+                    maxHeight: 375
+                )
+                .background(.white)
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: 20,
+                        style: .continuous
+                    )
+                )
+        }
+    }
 
-            if wasSaved {
+    private func loadImage() async {
+        guard let imageSelection else {
+            return
+        }
+
+        do {
+            guard let data = try await imageSelection
+                .loadTransferable(type: Data.self),
+                  let image = UIImage(data: data)
+            else {
+                return
+            }
+
+            await MainActor.run {
+                selectedImage = image
+                onboarding.errorMessage = nil
+            }
+
+        } catch {
+            await MainActor.run {
+                onboarding.errorMessage =
+                    "The selected image could not be loaded."
+            }
+        }
+    }
+
+    private func uploadAndContinue() {
+        guard selectedImage != nil else {
+            return
+        }
+
+        Task {
+            let didUpload = await onboarding.uploadProfilePicture(
+                image: selectedImage
+            )
+
+            if didUpload {
                 showNextView = true
             }
-        }
-    }
-    
-    @MainActor
-    private func loadImage() async {
-        guard let item = imageSelection else { return }
-        do {
-            if let data = try await item.loadTransferable(type: Data.self),
-                let uiImage =  UIImage(data: data) {
-                selectedImage = uiImage
-            }
-        } catch {
-            print("Failed to load image: \(error)")
         }
     }
 }
