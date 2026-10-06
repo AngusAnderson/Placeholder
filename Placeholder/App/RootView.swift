@@ -11,13 +11,13 @@ struct RootView: View {
     var body: some View {
         Group {
             if auth.isLoading && auth.session == nil {
-                ProgressView("Loading...")
+                LoadingView()
 
             } else if auth.session == nil {
                 SignInView(auth: auth)
 
             } else if auth.onboardingCompleted == nil {
-                ProgressView("Loading...")
+                LoadingView()
 
             } else if auth.onboardingCompleted == false {
                 NameView(auth: auth)
