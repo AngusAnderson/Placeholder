@@ -28,6 +28,14 @@ nonisolated struct ProfilePictureUpdate: Encodable, Sendable {
     }
 }
 
+nonisolated struct ProfilePicturePath: Decodable, Sendable {
+    let profilePicturePath: String?
+
+    enum CodingKeys: String, CodingKey {
+        case profilePicturePath = "profile_picture_path"
+    }
+}
+
 struct ProfilePictureService {
     private let bucketName = "avatars"
 
@@ -94,6 +102,33 @@ struct ProfilePictureService {
             .update(update)
             .eq("id", value: user.id)
             .execute()
+    }
+
+    func fetchProfilePicturePath() async throws -> String? {
+        let session = try await supabase.auth.session
+        let user = session.user
+
+        let profile: ProfilePicturePath = try await supabase
+            .from("profiles")
+            .select("profile_picture_path")
+            .eq("id", value: user.id)
+            .single()
+            .execute()
+            .value
+
+        return profile.profilePicturePath
+    }
+
+    func createSignedProfilePictureURL(
+        path: String,
+        expiresIn: Int = 3600
+    ) async throws -> URL {
+        try await supabase.storage
+            .from(bucketName)
+            .createSignedURL(
+                path: path,
+                expiresIn: expiresIn
+            )
     }
 
     private func contentType(

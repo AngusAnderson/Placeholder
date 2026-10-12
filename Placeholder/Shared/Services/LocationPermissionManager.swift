@@ -18,7 +18,10 @@ final class LocationPermissionManager: NSObject, ObservableObject {
         super.init()
 
         manager.delegate = self
+        updateAuthorizationState()
+    }
 
+    func refreshAuthorizationStatus() {
         updateAuthorizationState()
     }
 
@@ -38,15 +41,11 @@ final class LocationPermissionManager: NSObject, ObservableObject {
         locationManager.requestAlwaysAuthorization()
     }
 
-    func refreshAuthorizationStatus() {
-        updateAuthorizationState()
-    }
-
     private func updateAuthorizationState() {
-        authorizationStatus = locationManager.authorizationStatus
+        let status = locationManager.authorizationStatus
 
-        isAlwaysAuthorized =
-            authorizationStatus == .authorizedAlways
+        authorizationStatus = status
+        isAlwaysAuthorized = status == .authorizedAlways
     }
 }
 
@@ -61,9 +60,8 @@ extension LocationPermissionManager: CLLocationManagerDelegate {
                 return
             }
 
-            self.authorizationStatus = status
-            self.isAlwaysAuthorized =
-                status == .authorizedAlways
+            authorizationStatus = status
+            isAlwaysAuthorized = status == .authorizedAlways
         }
     }
 }
