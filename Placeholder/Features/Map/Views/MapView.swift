@@ -29,44 +29,6 @@ struct MapView: View {
 
     var body: some View {
         Map(position: $cameraPosition) {
-            Annotation(
-                "Smithstone",
-                coordinate: .smithstone,
-                anchor: .center
-            ) {
-                Image(systemName: "house.fill")
-                    .resizable()
-                    .aspectRatio(
-                        contentMode: .fit
-                    )
-                    .foregroundStyle(.white)
-                    .frame(
-                        width: 20,
-                        height: 20
-                    )
-                    .padding(7)
-                    .background(
-                        .red.gradient,
-                        in: .circle
-                    )
-                    .contextMenu {
-                        Button(
-                            "Open Look Around",
-                            systemImage: "binoculars"
-                        ) {
-                            openLookAround()
-                        }
-
-                        Button(
-                            "Get Directions",
-                            systemImage: "arrow.turn.down.right"
-                        ) {
-                            getDirections(
-                                to: .smithstone
-                            )
-                        }
-                    }
-            }
 
             if let coordinate = userLocation.coordinate {
                 Annotation(
