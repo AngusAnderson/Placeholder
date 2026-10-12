@@ -26,57 +26,79 @@ struct MapView: View {
     @State private var route: MKRoute?
 
     @State private var hasCenteredOnUser = false
+    
+    // Team selector stuff
+    @State private var selection: String?
 
     var body: some View {
-        Map(position: $cameraPosition) {
+        ZStack {
+            Map(position: $cameraPosition) {
 
-            if let coordinate = userLocation.coordinate {
-                Annotation(
-                    "You",
-                    coordinate: coordinate,
-                    anchor: .center
-                ) {
-                    ProfileMapAnnotation(
-                        image: profileImage
-                    )
+                if let coordinate = userLocation.coordinate {
+                    Annotation(
+                        "You",
+                        coordinate: coordinate,
+                        anchor: .center
+                    ) {
+                        ProfileMapAnnotation(
+                            image: profileImage
+                        )
+                    }
+                }
+
+                if let route {
+                    MapPolyline(route)
+                        .stroke(
+                            Color.pink,
+                            lineWidth: 4
+                        )
                 }
             }
-
-            if let route {
-                MapPolyline(route)
-                    .stroke(
-                        Color.pink,
-                        lineWidth: 4
-                    )
+            .onAppear {
+                userLocation.startUpdatingLocation()
+            }
+            .onDisappear {
+                userLocation.stopUpdatingLocation()
+            }
+            .onChange(
+                of: userLocation.coordinate?.latitude
+            ) { _, _ in
+                centerOnUserIfNeeded()
+            }
+            .onChange(
+                of: userLocation.coordinate?.longitude
+            ) { _, _ in
+                centerOnUserIfNeeded()
+            }
+            .mapControls {
+                MapUserLocationButton()
+                MapCompass()
+                MapPitchToggle()
+                MapScaleView()
+            }
+            .mapStyle(.standard)
+            .lookAroundViewer(
+                isPresented: $isShowingLookAround,
+                initialScene: lookAroundScene
+            )
+            
+            // Team drop down menu.
+            // Later I'll change the 'Team' to be the actual team name, that is currently selected.
+            
+            .overlay(alignment: .top) {
+                TeamView(
+                    hint: "Team",
+                    options: [
+                        "Team 1",
+                        "Team 2",
+                        "Team 3"
+                    ],
+                    selection: $selection
+                )
+                .padding(.top, 14)
+                .padding(.horizontal, 16)
             }
         }
-        .onAppear {
-            userLocation.startUpdatingLocation()
-        }
-        .onDisappear {
-            userLocation.stopUpdatingLocation()
-        }
-        .onChange(
-            of: userLocation.coordinate?.latitude
-        ) { _, _ in
-            centerOnUserIfNeeded()
-        }
-        .onChange(
-            of: userLocation.coordinate?.longitude
-        ) { _, _ in
-            centerOnUserIfNeeded()
-        }
-        .mapControls {
-            MapUserLocationButton()
-            MapCompass()
-            MapPitchToggle()
-            MapScaleView()
-        }
-        .mapStyle(.standard)
-        .lookAroundViewer(
-            isPresented: $isShowingLookAround,
-            initialScene: lookAroundScene
-        )
     }
 
     private func centerOnUserIfNeeded() {
