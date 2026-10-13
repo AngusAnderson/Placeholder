@@ -29,7 +29,7 @@ final class UserProfileStore {
     var username: String? {
         profile?.username
     }
-
+    
     var firstName: String? {
         profile?.firstName
     }

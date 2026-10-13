@@ -140,6 +140,25 @@ struct ProfileService {
 
         return existingUsernames.isEmpty
     }
+    
+    func searchUsers(query: String) async throws -> [UserSearchResult] {
+        let cleanedQuery = query
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard cleanedQuery.count >= 2 else {
+            return []
+        }
+
+        let results: [UserSearchResult] = try await supabase
+            .rpc(
+                "search_profiles",
+                params: ["search_query": cleanedQuery]
+            )
+            .execute()
+            .value
+
+        return results
+    }
 
     private func isValidUsername(_ username: String) -> Bool {
         let allowedCharacters = CharacterSet(

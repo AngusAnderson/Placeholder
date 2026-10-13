@@ -6,6 +6,8 @@ struct ProfileView: View {
     
     @Environment(\.dismiss) private var dismiss
     @State private var isFollowing = false
+    
+    @State private var showUserSearch = false
 
     var openSettings: () -> Void = {}
     
@@ -52,7 +54,26 @@ struct ProfileView: View {
         .background(Color.black.ignoresSafeArea())
         .foregroundStyle(.white)
         .preferredColorScheme(.dark)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .toolbar(.hidden, for: .navigationBar)
+        .overlay {
+            if showUserSearch {
+                UserSearchOverlay(
+                    onClose: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showUserSearch = false
+                        }
+                    },
+                    onSelect: { user in
+                        showUserSearch = false
+                    }
+                )
+                .transition(
+                    .opacity.combined(with: .scale(scale: 0.97))
+                )
+                .zIndex(10)
+            }
+        }
     }
 
     // MARK: - Background
@@ -131,6 +152,14 @@ struct ProfileView: View {
     private var topControls: some View {
         HStack {
             
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showUserSearch = true
+                }
+            } label: {
+                circularIcon("magnifyingglass")
+            }
+            .accessibilityLabel("Search users")
 
             Spacer()
 
@@ -175,6 +204,10 @@ struct ProfileView: View {
             Text(userProfileStore.displayName)
                 .font(.system(size: 38, weight: .semibold))
                 .multilineTextAlignment(.center)
+            
+            Text("@" + (userProfileStore.username ?? "Error"))
+                .font(.system(size: 18))
+                .foregroundStyle(.white.opacity(0.55))
         }
         .frame(maxWidth: .infinity)
     }
