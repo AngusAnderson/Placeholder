@@ -5,6 +5,8 @@ enum ProfileServiceError: LocalizedError {
     case noAuthenticatedUser
     case invalidFirstName
     case invalidSurname
+    case invalidUsername
+    case usernameTaken
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +18,12 @@ enum ProfileServiceError: LocalizedError {
 
         case .invalidSurname:
             return "Please enter your surname."
+
+        case .invalidUsername:
+            return "Usernames must be 3–20 characters and contain only lowercase letters, numbers, and underscores."
+
+        case .usernameTaken:
+            return "That username is already taken."
         }
     }
 }
@@ -81,6 +89,66 @@ struct ProfileService {
             .update(update)
             .eq("id", value: user.id)
             .execute()
+    }
+    
+    // MARK: Username section
+    
+    func saveUsername(_ username: String) async throws {
+        let cleanedUsername = username
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard isValidUsername(cleanedUsername) else {
+            throw ProfileServiceError.invalidUsername
+        }
+
+        let user = try await currentUser()
+
+        let isAvailable = try await isUsernameAvailable(
+            cleanedUsername,
+            excludingUserID: user.id
+        )
+
+        guard isAvailable else {
+            throw ProfileServiceError.usernameTaken
+        }
+
+        let update = UsernameUpdate(username: cleanedUsername)
+
+        try await supabase
+            .from("profiles")
+            .update(update)
+            .eq("id", value: user.id)
+            .execute()
+    }
+
+    func isUsernameAvailable(
+        _ username: String,
+        excludingUserID userID: UUID
+    ) async throws -> Bool {
+        struct UsernameRow: Decodable, Sendable {
+            let id: UUID
+        }
+
+        let existingUsernames: [UsernameRow] = try await supabase
+            .from("profiles")
+            .select("id")
+            .eq("username", value: username)
+            .neq("id", value: userID)
+            .execute()
+            .value
+
+        return existingUsernames.isEmpty
+    }
+
+    private func isValidUsername(_ username: String) -> Bool {
+        let allowedCharacters = CharacterSet(
+            charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789_"
+        )
+
+        return username.count >= 3
+            && username.count <= 20
+            && username.unicodeScalars.allSatisfy { allowedCharacters.contains($0) }
     }
 
     private func currentUser() async throws -> User {

@@ -1,7 +1,8 @@
 import Foundation
 
-nonisolated struct Profile: Decodable, Sendable {
+nonisolated struct Profile: Decodable, Sendable, Equatable {
     let id: UUID
+    let username: String?
     let firstName: String?
     let surname: String?
     let profilePicturePath: String?
@@ -9,6 +10,7 @@ nonisolated struct Profile: Decodable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case username
         case firstName = "first_name"
         case surname
         case profilePicturePath = "profile_picture_path"
@@ -23,6 +25,14 @@ nonisolated struct NameUpdate: Encodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case firstName = "first_name"
         case surname
+    }
+}
+
+nonisolated struct UsernameUpdate: Encodable, Sendable {
+    let username: String
+
+    enum CodingKeys: String, CodingKey {
+        case username
     }
 }
 

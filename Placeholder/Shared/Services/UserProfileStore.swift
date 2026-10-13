@@ -16,11 +16,18 @@ final class UserProfileStore {
     private(set) var isCompletingOnboarding = false
     
     private(set) var isSavingName = false
+    
+    private(set) var isSavingUsername = false
+    private(set) var isSavingProfilePicture = false
 
     var errorMessage: String?
 
     var isOnboarded: Bool {
         profile?.onboardingCompleted ?? false
+    }
+    
+    var username: String? {
+        profile?.username
     }
 
     var firstName: String? {
@@ -154,6 +161,63 @@ final class UserProfileStore {
             profile = refreshedProfile
 
             await loadProfileImage()
+
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+    
+    func saveUsername(_ username: String) async -> Bool {
+        guard !isSavingUsername else {
+            return false
+        }
+
+        isSavingUsername = true
+        errorMessage = nil
+
+        defer {
+            isSavingUsername = false
+        }
+
+        do {
+            try await profileService.saveUsername(username)
+
+            profile = try await profileService.fetchCurrentProfile()
+
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func saveProfilePicture(_ image: UIImage) async -> Bool {
+        guard !isSavingProfilePicture else {
+            return false
+        }
+
+        isSavingProfilePicture = true
+        errorMessage = nil
+
+        defer {
+            isSavingProfilePicture = false
+        }
+
+        do {
+            guard let imageData = image.jpegData(compressionQuality: 0.85) else {
+                throw ProfilePictureServiceError.imageConversionFailed
+            }
+
+            _ = try await profilePictureService.uploadProfilePicture(
+                imageData: imageData,
+                fileExtension: "jpg"
+            )
+
+            profile = try await profileService.fetchCurrentProfile()
+
+            profileImage = image
 
             return true
         } catch {

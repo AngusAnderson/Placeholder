@@ -7,7 +7,9 @@ struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isFollowing = false
 
-    var onMessage: () -> Void = {}
+    var openSettings: () -> Void = {}
+    
+    @State private var showSettings = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
@@ -134,18 +136,21 @@ struct ProfileView: View {
 
             Menu {
                 Button {
-                    onMessage()
+                    showSettings = true
                 } label: {
                     Label("Settings", systemImage: "gear")
                 }
 
                 Button {
-                    onMessage()
+                    openSettings()
                 } label: {
                     Label("Credits", systemImage: "info.circle")
                 }
             } label: {
                 circularIcon("ellipsis")
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .accessibilityLabel("Profile settings and credits")
         }
