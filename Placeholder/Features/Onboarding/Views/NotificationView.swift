@@ -3,10 +3,10 @@ import SwiftUI
 struct NotificationView: View {
     @ObservedObject var auth: AuthViewModel
 
+    @Environment(UserProfileStore.self) private var userProfileStore
+
     @StateObject private var notificationPermission =
         NotificationPermissionManager()
-
-    @State private var showHomeView = false
 
     var body: some View {
         NavigationStack {
@@ -52,7 +52,7 @@ struct NotificationView: View {
                     )
                     .padding(.top, 48)
 
-                    if let errorMessage = auth.errorMessage {
+                    if let errorMessage = userProfileStore.errorMessage {
                         Text(errorMessage)
                             .font(.footnote)
                             .foregroundStyle(.red)
@@ -61,59 +61,55 @@ struct NotificationView: View {
 
                     Spacer()
 
-                    Button {
-                        completeOnboardingAndContinue()
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(.black)
-                                .frame(width: 54, height: 54)
-
-                            if auth.isLoading {
-                                ProgressView()
-                                    .tint(.white)
-                            } else {
-                                Image(systemName: "arrow.right")
-                                    .font(
-                                        .system(
-                                            size: 22,
-                                            weight: .medium
-                                        )
-                                    )
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                    }
-                    .disabled(auth.isLoading)
-                    .opacity(auth.isLoading ? 0.4 : 1)
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: .trailing
-                    )
+                    completeButton
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
                 .padding(.bottom, 16)
             }
             .navigationBarBackButtonHidden()
-            .navigationDestination(
-                isPresented: $showHomeView
-            ) {
-                HomeView(auth: auth)
-            }
             .task {
                 await notificationPermission.requestPermission()
             }
         }
     }
 
-    private func completeOnboardingAndContinue() {
-        Task {
-            await auth.completeOnboarding()
+    private var isBusy: Bool {
+        userProfileStore.isCompletingOnboarding ||
+        notificationPermission.isRequestingPermission
+    }
 
-            if auth.onboardingCompleted == true {
-                showHomeView = true
+    private var completeButton: some View {
+        Button {
+            Task {
+                await userProfileStore.completeOnboarding()
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(.black)
+                    .frame(width: 54, height: 54)
+
+                if isBusy {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Image(systemName: "arrow.right")
+                        .font(
+                            .system(
+                                size: 22,
+                                weight: .medium
+                            )
+                        )
+                        .foregroundStyle(.white)
+                }
             }
         }
+        .disabled(isBusy)
+        .opacity(isBusy ? 0.4 : 1)
+        .frame(
+            maxWidth: .infinity,
+            alignment: .trailing
+        )
     }
 }

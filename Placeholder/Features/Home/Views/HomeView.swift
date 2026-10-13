@@ -5,50 +5,47 @@ enum tabs {
 }
 
 struct HomeView: View {
-    @State var selectedTab: tabs = .map
-    
-    @ObservedObject var auth: AuthViewModel
+    @State private var selectedTab: tabs = .map
 
-    @StateObject private var home = HomeViewModel()
+    @Environment(UserProfileStore.self) private var userProfileStore
 
     var body: some View {
-        
-        ZStack {
-            
-            TabView(selection: $selectedTab) {
-                Tab("Challenge", systemImage: "target", value: .challenge) {
-                    ChallengeView()
-                }
-                Tab("Activity", systemImage: "waveform.path.ecg", value: .activity) {
-                    ActivityView()
-                }
-                Tab("Map", systemImage: "map", value: .map) {
-                    MapView(
-                        profileImage: home.profileImage
-                    )
+        TabView(selection: $selectedTab) {
+            Tab("Challenge", systemImage: "target", value: .challenge) {
+                ChallengeView()
+            }
 
-                    if home.isLoadingProfileImage {
-                        ProgressView()
-                            .padding()
-                            .background(.thinMaterial)
-                            .clipShape(
-                                RoundedRectangle(
-                                    cornerRadius: 12,
-                                    style: .continuous
-                                )
+            Tab("Activity", systemImage: "waveform.path.ecg", value: .activity) {
+                ActivityView()
+            }
+
+            Tab("Map", systemImage: "map", value: .map) {
+                MapView(
+                    profileImage: userProfileStore.profileImage
+                )
+
+                if userProfileStore.isLoadingProfileImage {
+                    ProgressView()
+                        .padding()
+                        .background(.thinMaterial)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: 12,
+                                style: .continuous
                             )
-                    }
-                }
-                Tab("Leaderboard", systemImage: "trophy.fill", value: .leaderboard) {
-                    LeaderboardView()
-                }
-                Tab("Profile", systemImage: "person", value: .profile) {
-                    ProfileView()
+                        )
                 }
             }
-        }
-        .task {
-            await home.loadProfileImage()
+
+            Tab("Leaderboard", systemImage: "trophy.fill", value: .leaderboard) {
+                LeaderboardView()
+            }
+
+            Tab("Profile", systemImage: "person", value: .profile) {
+                ProfileView(
+                    profileImage: userProfileStore.profileImage
+                )
+            }
         }
     }
 }

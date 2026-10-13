@@ -131,43 +131,38 @@ struct ProfilePictureView: View {
 
     @ViewBuilder
     private var imagePreview: some View {
-        if let selectedImage {
-            Image(uiImage: selectedImage)
-                .resizable()
-                .scaledToFill()
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: 375,
-                    maxHeight: 375
-                )
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: 20,
-                        style: .continuous
-                    )
-                )
-                .contentShape(
-                    RoundedRectangle(
-                        cornerRadius: 20,
-                        style: .continuous
-                    )
-                )
-        } else {
-            Image(systemName: "photo.fill")
-                .font(.system(size: 50))
-                .foregroundStyle(.black)
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: 375,
-                    maxHeight: 375
-                )
-                .background(.white)
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: 20,
-                        style: .continuous
-                    )
-                )
+        RoundedRectangle(
+            cornerRadius: 20,
+            style: .continuous
+        )
+        .fill(selectedImage == nil ? Color.white : Color.clear)
+        .frame(maxWidth: .infinity)
+        .frame(height: 375)
+        .overlay {
+            if let selectedImage {
+                Image(uiImage: selectedImage)
+                    .resizable()
+                    .scaledToFill()
+            }
+        }
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: 20,
+                style: .continuous
+            )
+        )
+        .contentShape(
+            RoundedRectangle(
+                cornerRadius: 20,
+                style: .continuous
+            )
+        )
+        .overlay {
+            if selectedImage == nil {
+                Image(systemName: "photo.fill")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.black)
+            }
         }
     }
 

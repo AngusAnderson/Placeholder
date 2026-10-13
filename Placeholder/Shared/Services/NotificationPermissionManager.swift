@@ -29,6 +29,7 @@ final class NotificationPermissionManager: ObservableObject {
             print("Notification permission granted: \(granted)")
         } catch {
             // Damn, not letting notifications.
+            // Didn't know you was moving like that.
             print(
                 "Notification permission request failed: \(error)"
             )

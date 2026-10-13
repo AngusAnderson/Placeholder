@@ -1,8 +1,14 @@
 import SwiftUI
 
 struct NameView: View {
-    @StateObject private var onboarding = OnboardingViewModel()
+    @State private var firstName = ""
+    @State private var surname = ""
+
     @State private var showNextView = false
+    
+    private(set) var isSavingName = false
+
+    @Environment(UserProfileStore.self) private var userProfileStore
     
     @ObservedObject var auth: AuthViewModel
 
@@ -31,16 +37,16 @@ struct NameView: View {
                         VStack(spacing: 20) {
                             NameInputField(
                                 title: "First Name",
-                                text: $onboarding.firstName
+                                text: $firstName
                             )
 
                             NameInputField(
                                 title: "Last Name",
-                                text: $onboarding.surname
+                                text: $surname
                             )
                         }
 
-                        if let errorMessage = onboarding.errorMessage {
+                        if let errorMessage = userProfileStore.errorMessage {
                             Text(errorMessage)
                                 .font(.footnote)
                                 .foregroundStyle(.red)
@@ -50,22 +56,8 @@ struct NameView: View {
                     .padding(.top, 48)
 
                     Spacer()
-                    
-                    NextButton(
-                        onboarding: onboarding,
-                        showNextView: $showNextView
-                    )
-                    .disabled(
-                        !onboarding.canContinueFromNameScreen ||
-                        onboarding.isSaving
-                    )
-                    .opacity(
-                        onboarding.canContinueFromNameScreen &&
-                        !onboarding.isSaving
-                            ? 1
-                            : 0.4
-                    )
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+
+                    nextButton
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
@@ -76,5 +68,43 @@ struct NameView: View {
                 LocationView(auth: auth)
             }
         }
+    }
+
+    private var canContinue: Bool {
+        !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !surname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var nextButton: some View {
+        Button {
+            Task {
+                let saved = await userProfileStore.saveName(
+                    firstName: firstName,
+                    surname: surname
+                )
+
+                if saved {
+                    showNextView = true
+                }
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(.black)
+                    .frame(width: 54, height: 54)
+
+                if userProfileStore.isSavingName {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .disabled(!canContinue || userProfileStore.isSavingName)
+        .opacity(canContinue && !userProfileStore.isSavingName ? 1 : 0.4)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
