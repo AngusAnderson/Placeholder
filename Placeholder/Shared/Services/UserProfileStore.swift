@@ -118,8 +118,7 @@ final class UserProfileStore {
                 firstName: firstName,
                 surname: surname
             )
-
-            // ProfileService already trims and validates the names.
+            
             profile = try await profileService.fetchCurrentProfile()
 
             return true

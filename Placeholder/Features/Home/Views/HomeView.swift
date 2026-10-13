@@ -42,9 +42,7 @@ struct HomeView: View {
             }
 
             Tab("Profile", systemImage: "person", value: .profile) {
-                ProfileView(
-                    profileImage: userProfileStore.profileImage
-                )
+                ProfileView()
             }
         }
     }
