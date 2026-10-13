@@ -8,6 +8,7 @@ struct ProfileView: View {
     @State private var isFollowing = false
     
     @State private var showUserSearch = false
+    @State private var selectedPublicProfile: UserSearchResult?
 
     var openSettings: () -> Void = {}
     
@@ -65,7 +66,13 @@ struct ProfileView: View {
                         }
                     },
                     onSelect: { user in
-                        showUserSearch = false
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showUserSearch = false
+                        }
+
+                        DispatchQueue.main.async {
+                            selectedPublicProfile = user
+                        }
                     }
                 )
                 .transition(
@@ -73,6 +80,9 @@ struct ProfileView: View {
                 )
                 .zIndex(10)
             }
+        }
+        .navigationDestination(item: $selectedPublicProfile) { user in
+            PublicProfileView(profileID: user.id)
         }
     }
 

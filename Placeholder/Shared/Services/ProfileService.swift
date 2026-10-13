@@ -7,6 +7,7 @@ enum ProfileServiceError: LocalizedError {
     case invalidSurname
     case invalidUsername
     case usernameTaken
+    case profileNotFound
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +25,9 @@ enum ProfileServiceError: LocalizedError {
 
         case .usernameTaken:
             return "That username is already taken."
+            
+        case .profileNotFound:
+            return "This profile could not be found."
         }
     }
 }
@@ -158,6 +162,24 @@ struct ProfileService {
             .value
 
         return results
+    }
+    
+    func fetchPublicProfile(
+        id: UUID
+    ) async throws -> PublicProfile {
+        let profiles: [PublicProfile] = try await supabase
+            .rpc(
+                "get_public_profile",
+                params: ["requested_profile_id": id.uuidString]
+            )
+            .execute()
+            .value
+
+        guard let profile = profiles.first else {
+            throw ProfileServiceError.profileNotFound
+        }
+
+        return profile
     }
 
     private func isValidUsername(_ username: String) -> Bool {

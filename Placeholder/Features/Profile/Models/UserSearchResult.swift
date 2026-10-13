@@ -1,6 +1,6 @@
 import Foundation
 
-struct UserSearchResult: Decodable, Identifiable, Sendable {
+struct UserSearchResult: Decodable, Identifiable, Sendable, Hashable {
     let id: UUID
     let firstName: String?
     let surname: String?
