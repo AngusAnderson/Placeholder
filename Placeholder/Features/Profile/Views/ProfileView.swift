@@ -82,7 +82,10 @@ struct ProfileView: View {
             }
         }
         .navigationDestination(item: $selectedPublicProfile) { user in
-            PublicProfileView(profileID: user.id)
+            PublicProfileView(
+                profileID: user.id,
+                client: supabase
+            )
         }
     }
 
@@ -251,7 +254,6 @@ struct ProfileView: View {
         HStack {
             statistic(value: "1", title: "Following")
             statistic(value: "2K", title: "Followers")
-            statistic(value: "124K", title: "Steps")
         }
         .padding(.vertical, 6)
     }

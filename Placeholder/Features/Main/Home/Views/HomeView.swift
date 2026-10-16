@@ -43,7 +43,7 @@ struct HomeView: View {
 
             Tab("Profile", systemImage: "person", value: .profile) {
                 NavigationStack {
-                    ProfileView()
+                    ProfileView()    
                 }
             }
         }

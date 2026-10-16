@@ -1,7 +1,9 @@
 import SwiftUI
+import Supabase
 
 struct PublicProfileView: View {
     let profileID: UUID
+    let client: SupabaseClient
 
     @Environment(\.dismiss) private var dismiss
 
@@ -10,8 +12,6 @@ struct PublicProfileView: View {
 
     @State private var isLoading = true
     @State private var errorMessage: String?
-
-    @State private var isFollowing = false
 
     private let profileService = ProfileService()
     private let profilePictureService = ProfilePictureService()
@@ -267,54 +267,11 @@ struct PublicProfileView: View {
     // MARK: - Actions
 
     private var actions: some View {
-        HStack(spacing: 14) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isFollowing.toggle()
-                }
-            } label: {
-                Text(isFollowing ? "Following" : "Follow")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(
-                        isFollowing ? Color.white : Color.black
-                    )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background {
-                        Capsule()
-                            .fill(
-                                isFollowing
-                                    ? Color.white.opacity(0.15)
-                                    : Color.white
-                            )
-                    }
-                    .overlay {
-                        Capsule()
-                            .stroke(
-                                .white.opacity(isFollowing ? 0.2 : 0),
-                                lineWidth: 1
-                            )
-                    }
-            }
-
-            Button {
-                // Route to a future conversation screen.
-            } label: {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 21))
-                    .frame(width: 56, height: 56)
-                    .background(
-                        .white.opacity(0.05),
-                        in: Circle()
-                    )
-                    .overlay {
-                        Circle()
-                            .stroke(.white.opacity(0.15), lineWidth: 1)
-                    }
-            }
-            .accessibilityLabel("Send message")
-        }
-        .buttonStyle(.plain)
+        FriendshipButtonView(
+            targetUserID: profileID,
+            client: client
+        )
+        .id(profileID)
     }
 
     // MARK: - Placeholder sections
@@ -323,7 +280,6 @@ struct PublicProfileView: View {
         HStack {
             statistic(value: "—", title: "Following")
             statistic(value: "—", title: "Followers")
-            statistic(value: "—", title: "Creations")
         }
         .padding(.vertical, 6)
     }
@@ -399,7 +355,8 @@ struct PublicProfileView: View {
 #Preview {
     NavigationStack {
         PublicProfileView(
-            profileID: UUID()
+            profileID: UUID(),
+            client: supabase
         )
     }
 }
