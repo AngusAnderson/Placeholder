@@ -29,6 +29,9 @@ struct MapView: View {
     
     // Team selector stuff
     @State private var selection: String?
+    
+    // Notification stuff
+    @State private var showNotifications = false
 
     var body: some View {
         ZStack {
@@ -74,7 +77,6 @@ struct MapView: View {
                 MapUserLocationButton()
                 MapCompass()
                 MapPitchToggle()
-                MapScaleView()
             }
             .mapStyle(.standard)
             .lookAroundViewer(
@@ -98,6 +100,36 @@ struct MapView: View {
                 .padding(.top, 14)
                 .padding(.horizontal, 16)
             }
+            .overlay(alignment: .topLeading) {
+                Group {
+                    if #available(iOS 26.0, *) {
+                        notificationButton
+                            .buttonStyle(.glass)
+                            .buttonBorderShape(.circle)
+                            .tint(.blue)
+                    } else {
+                        notificationButton
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.cyan)
+                            .background(
+                                .regularMaterial,
+                                in: Circle()
+                            )
+                            .overlay {
+                                Circle()
+                                    .stroke(
+                                        .white.opacity(0.15),
+                                        lineWidth: 1
+                                    )
+                            }
+                    }
+                }
+                .padding(.leading, 16)
+                .padding(.top, 15)
+            }
+        }
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView()
         }
     }
 
@@ -184,5 +216,16 @@ struct MapView: View {
                 )
             }
         }
+    }
+    
+    private var notificationButton: some View {
+        Button {
+            showNotifications = true
+        } label: {
+            Image(systemName: "bell.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .frame(width: 32, height: 32)
+        }
+        .accessibilityLabel("Open notifications")
     }
 }

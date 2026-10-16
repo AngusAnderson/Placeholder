@@ -20,20 +20,22 @@ struct HomeView: View {
             }
 
             Tab("Map", systemImage: "map", value: .map) {
-                MapView(
-                    profileImage: userProfileStore.profileImage
-                )
+                ZStack {
+                    MapView(
+                        profileImage: userProfileStore.profileImage
+                    )
 
-                if userProfileStore.isLoadingProfileImage {
-                    ProgressView()
-                        .padding()
-                        .background(.thinMaterial)
-                        .clipShape(
-                            RoundedRectangle(
-                                cornerRadius: 12,
-                                style: .continuous
+                    if userProfileStore.isLoadingProfileImage {
+                        ProgressView()
+                            .padding()
+                            .background(.thinMaterial)
+                            .clipShape(
+                                RoundedRectangle(
+                                    cornerRadius: 12,
+                                    style: .continuous
+                                )
                             )
-                        )
+                    }
                 }
             }
 
