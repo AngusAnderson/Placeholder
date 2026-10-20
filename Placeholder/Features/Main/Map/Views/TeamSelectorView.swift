@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TeamView: View {
+struct TeamSelectorView: View {
     
     var hint: String
     var options: [String]

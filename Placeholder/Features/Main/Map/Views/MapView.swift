@@ -88,7 +88,7 @@ struct MapView: View {
             // Later I'll change the 'Team' to be the actual team name, that is currently selected.
             
             .overlay(alignment: .top) {
-                TeamView(
+                TeamSelectorView(
                     hint: "Team",
                     options: [
                         "Team 1",
