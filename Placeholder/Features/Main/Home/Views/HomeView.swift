@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum tabs {
-    case map, profile, activity, challenge, leaderboard
+    case map, profile, team, challenge, leaderboard
 }
 
 struct HomeView: View {
@@ -17,8 +17,8 @@ struct HomeView: View {
                 ChallengeView()
             }
 
-            Tab("Activity", systemImage: "waveform.path.ecg", value: .activity) {
-                ActivityView()
+            Tab("Teams", systemImage: "person.3.fill", value: .team) {
+                TeamView()
             }
 
             Tab("Map", systemImage: "map", value: .map) {

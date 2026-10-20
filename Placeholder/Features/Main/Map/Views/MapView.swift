@@ -27,8 +27,10 @@ struct MapView: View {
 
     @State private var hasCenteredOnUser = false
     
-    // Team selector stuff
-    @State private var selection: String?
+    // Team selector
+    @State private var selectedTeamID: Int64?
+    @State private var teamModel = TeamViewModel()
+    @State private var showTeams = false
     
     // Notification stuff
     @State private var showNotifications = false
@@ -85,17 +87,22 @@ struct MapView: View {
             )
             
             // Team drop down menu.
-            // Later I'll change the 'Team' to be the actual team name, that is currently selected.
-            
             .overlay(alignment: .top) {
-                TeamView(
+                TeamSelectorView(
+                    teams: teamModel.teams,
+                    isLoading: teamModel.isLoading,
+                    hasLoaded: teamModel.hasLoaded,
+                    errorMessage: teamModel.errorMessage,
+                    selection: $selectedTeamID,
                     hint: "Team",
-                    options: [
-                        "Team 1",
-                        "Team 2",
-                        "Team 3"
-                    ],
-                    selection: $selection
+                    onManageTeams: {
+                        showTeams = true
+                    },
+                    onRetry: {
+                        Task {
+                            await teamModel.load()
+                        }
+                    }
                 )
                 .padding(.top, 14)
                 .padding(.horizontal, 16)
@@ -128,7 +135,39 @@ struct MapView: View {
                 .padding(.top, 15)
             }
         }
-        .sheet(isPresented: $showNotifications) {
+        .task {
+            await teamModel.load()
+        }
+
+        // Clear selection if the selected team is no longer available.
+        .onChange(of: teamModel.teams.map(\.id)) { _, availableIDs in
+            if let selectedTeamID,
+               !availableIDs.contains(selectedTeamID) {
+                self.selectedTeamID = nil
+            }
+        }
+
+        // Team management.
+        .sheet(
+            isPresented: $showTeams,
+            onDismiss: {
+                Task {
+                    await teamModel.load()
+                }
+            }
+        ) {
+            TeamView()
+        }
+
+        // Notifications.
+        .sheet(
+            isPresented: $showNotifications,
+            onDismiss: {
+                Task {
+                    await teamModel.load()
+                }
+            }
+        ) {
             NavigationStack {
                 NotificationsView(client: supabase)
             }
