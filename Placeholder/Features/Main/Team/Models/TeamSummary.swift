@@ -43,3 +43,9 @@ nonisolated struct TeamOperationParameters: Encodable, Sendable {
     var requested_name: String? = nil
     var requested_invitation_id: UUID? = nil
 }
+
+nonisolated struct OwnerTeamOperationParameters: Encodable, Sendable {
+    let requested_team_id: Int64
+    let requested_action: String
+    let requested_name: String?
+}

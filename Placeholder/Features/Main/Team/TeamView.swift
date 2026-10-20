@@ -1,11 +1,17 @@
 import SwiftUI
 
 struct TeamView: View {
-    @Environment(\.dismiss) private var dismiss
 
     @State private var model = TeamViewModel()
     @State private var teamName = ""
     @State private var teamToInviteTo: TeamSummary?
+    
+    @State private var teamToRename: TeamSummary?
+    @State private var renamedTeamName = ""
+    @State private var showRenameAlert = false
+
+    @State private var teamToDelete: TeamSummary?
+    @State private var showDeleteConfirmation = false
 
     private var cleanedTeamName: String {
         teamName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -71,13 +77,6 @@ struct TeamView: View {
                 }
             }
             .navigationTitle("Teams")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
             .task {
                 await model.load()
             }
@@ -86,6 +85,76 @@ struct TeamView: View {
             }
             .sheet(item: $teamToInviteTo) { team in
                 inviteFriendsSheet(for: team)
+            }
+            .alert(
+                "Rename Team",
+                isPresented: $showRenameAlert
+            ) {
+                TextField("Team name", text: $renamedTeamName)
+
+                Button("Cancel", role: .cancel) {
+                    teamToRename = nil
+                }
+
+                Button("Save") {
+                    guard let team = teamToRename else {
+                        return
+                    }
+
+                    let newName = renamedTeamName.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    )
+
+                    Task {
+                        _ = await model.perform(
+                            TeamOperationParameters(
+                                operation: "rename",
+                                requested_team_id: team.id,
+                                requested_name: newName
+                            )
+                        )
+                    }
+
+                    teamToRename = nil
+                }
+                .disabled(
+                    renamedTeamName.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ).count < 2
+                    || renamedTeamName.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ).count > 40
+                )
+            } message: {
+                Text("Choose a name containing 2–40 characters.")
+            }
+            .alert(
+                "Delete Team?",
+                isPresented: $showDeleteConfirmation,
+                presenting: teamToDelete
+            ) { team in
+                Button("Cancel", role: .cancel) {
+                    teamToDelete = nil
+                }
+
+                Button("Delete Team", role: .destructive) {
+                    Task {
+                        _ = await model.perform(
+                            TeamOperationParameters(
+                                operation: "delete",
+                                requested_team_id: team.id
+                            )
+                        )
+                    }
+
+                    teamToDelete = nil
+                }
+            } message: { team in
+                Text(
+                    "Delete “\(team.name)” for everyone? "
+                    + "All memberships and invitations for this team "
+                    + "will be removed. This cannot be undone."
+                )
             }
         }
     }
@@ -128,6 +197,43 @@ struct TeamView: View {
                     )
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if team.isOwner {
+                    Menu {
+                        Button {
+                            teamToRename = team
+                            renamedTeamName = team.name
+                            showRenameAlert = true
+                        } label: {
+                            Label(
+                                "Rename Team",
+                                systemImage: "pencil"
+                            )
+                        }
+
+                        Button(role: .destructive) {
+                            teamToDelete = team
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label(
+                                "Delete Team",
+                                systemImage: "trash"
+                            )
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(model.isBusy)
+                    .accessibilityLabel(
+                        "Manage \(team.name)"
+                    )
                 }
             }
 

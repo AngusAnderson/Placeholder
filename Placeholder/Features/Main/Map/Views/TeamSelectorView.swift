@@ -1,90 +1,185 @@
 import SwiftUI
 
 struct TeamSelectorView: View {
-    
-    var hint: String
-    var options: [String]
-    var anchor: anchor = .bottom
-    var maxWidth: CGFloat = 180
+    let teams: [TeamSummary]
+    let isLoading: Bool
+    let hasLoaded: Bool
+    let errorMessage: String?
+
+    @Binding var selection: Int64?
+
+    var hint: String = "Select a team"
+    var maxWidth: CGFloat = 200
     var cornerRadius: CGFloat = 20
-    
-    @Binding var selection: String?
-    
-    @State private var showOptions: Bool = false
-    
-    @Environment(\.colorScheme) private var scheme
-    
-    var body: some View {
-        GeometryReader {
-            let size = $0.size
-            
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    Text(selection ?? hint)
-                        .foregroundStyle(selection == nil ? .gray : .primary)
-                        .lineLimit(1)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.title3)
-                        .foregroundStyle(.gray)
-                        .rotationEffect(.init(degrees: showOptions ? -180 : 0))
-                }
-                .padding(.horizontal, 15)
-                .frame(width: size.width, height: size.height)
-                .background(scheme == .dark ? .black  : .white)
-                .contentShape(.rect)
-                .onTapGesture {
-                    withAnimation(.snappy) {
-                        showOptions.toggle()
-                    }
-                }
-                .zIndex(10)
-                
-                if showOptions {
-                    OptionsView()
-                }
-            }
-            .clipped()
-            .background((scheme == .dark ? Color.black : Color.white).shadow(.drop(color: .primary.opacity(0.15) ,radius: 4)), in: .rect(cornerRadius: cornerRadius))
+
+    var onManageTeams: () -> Void = {}
+    var onRetry: () -> Void = {}
+
+    private var selectedTeam: TeamSummary? {
+        teams.first {
+            $0.id == selection
         }
-        .frame(width: maxWidth,height: 50)
     }
-    
-    @ViewBuilder
-    func OptionsView() -> some View {
-        VStack(spacing: 10) {
-            ForEach(options, id: \.self) { option in
-                HStack(spacing: 0) {
-                    Text(option)
-                        .lineLimit(1)
-                    
-                    Spacer(minLength: 0)
-                    
-                    Image(systemName: "checkmark")
-                        .font(.caption)
-                        .opacity(selection == option ? 1 : 0)
-                }
-                .foregroundStyle(selection == option ? Color.primary : Color.gray)
-                .animation(.none, value: selection)
-                .frame(height: 40)
-                .contentShape(.rect)
-                .onTapGesture {
-                    withAnimation(.snappy) {
-                        selection = option
-                        
-                        showOptions = false
-                    }
-                }
+
+    private var title: String {
+        if let selectedTeam {
+            return selectedTeam.name
+        }
+
+        if isLoading && !hasLoaded {
+            return "Loading teams…"
+        }
+
+        if errorMessage != nil && teams.isEmpty {
+            return "Teams unavailable"
+        }
+
+        if hasLoaded && teams.isEmpty {
+            return "No teams yet"
+        }
+
+        return hint
+    }
+
+    var body: some View {
+        Menu {
+            menuContent
+        } label: {
+            selectorLabel
+                .modifier(
+                    TeamSelectorGlassModifier(
+                        cornerRadius: cornerRadius
+                    )
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Select team")
+        .accessibilityValue(title)
+    }
+
+    // MARK: - Label
+
+    private var selectorLabel: some View {
+        HStack(spacing: 10) {
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "person.3.fill")
+                    .foregroundStyle(.cyan)
             }
+
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.down")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 15)
-        .transition(.move(edge: .top))
+        .frame(width: maxWidth, height: 50)
+        .contentShape(
+            RoundedRectangle(cornerRadius: cornerRadius)
+        )
     }
-    
-    enum anchor {
-        case top
-        case bottom
+
+    // MARK: - Menu
+
+    @ViewBuilder
+    private var menuContent: some View {
+        if !teams.isEmpty {
+            Section("Your Teams") {
+                ForEach(teams) { team in
+                    Button {
+                        selection = team.id
+                    } label: {
+                        if selection == team.id {
+                            Label(
+                                team.name,
+                                systemImage: "checkmark"
+                            )
+                        } else {
+                            Text(team.name)
+                        }
+                    }
+                }
+            }
+
+            if selection != nil {
+                Button("Clear Selection") {
+                    selection = nil
+                }
+            }
+        } else if isLoading {
+            Text("Loading your teams…")
+        } else if errorMessage == nil && hasLoaded {
+            Text("You haven’t joined any teams yet.")
+        }
+
+        if errorMessage != nil {
+            Section {
+                Text("Couldn’t refresh your teams.")
+
+                Button {
+                    onRetry()
+                } label: {
+                    Label(
+                        "Try Again",
+                        systemImage: "arrow.clockwise"
+                    )
+                }
+                .disabled(isLoading)
+            }
+        }
+
+        Divider()
+
+        Button {
+            onManageTeams()
+        } label: {
+            Label(
+                "Manage Teams",
+                systemImage: "person.3"
+            )
+        }
+    }
+}
+
+// MARK: - Availability-aware glass styling
+
+private struct TeamSelectorGlassModifier: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .glassEffect(
+                    .regular.interactive(),
+                    in: RoundedRectangle(
+                        cornerRadius: cornerRadius
+                    )
+                )
+        } else {
+            content
+                .background(
+                    .regularMaterial,
+                    in: RoundedRectangle(
+                        cornerRadius: cornerRadius
+                    )
+                )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: cornerRadius
+                    )
+                    .stroke(
+                        Color.primary.opacity(0.12),
+                        lineWidth: 1
+                    )
+                }
+        }
     }
 }
