@@ -106,7 +106,38 @@ final class AuthViewModel: NSObject, ObservableObject {
         }
     }
 
-    func signOut() async {
+    @discardableResult
+    func signOut() async -> Bool {
+        errorMessage = nil
+
+        do {
+            try await supabase.auth.signOut(scope: .local)
+
+            session = nil
+
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+
+            return false
+        }
+    }
+
+    private func fetchProfile() async throws {
+        let profile = try await profileService.fetchCurrentProfile()
+        onboardingCompleted = profile.onboardingCompleted
+    }
+    
+    // MARK: Debug test account
+    #if DEBUG
+    func signInWithTestAccount(
+        email: String,
+        password: String
+    ) async {
+        guard !isLoading else {
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -115,18 +146,15 @@ final class AuthViewModel: NSObject, ObservableObject {
         }
 
         do {
-            try await supabase.auth.signOut()
+            let signedInSession = try await supabase.auth.signIn(
+                email: email,
+                password: password
+            )
 
-            session = nil
-            onboardingCompleted = nil
-
+            session = signedInSession
         } catch {
             errorMessage = error.localizedDescription
         }
     }
-
-    private func fetchProfile() async throws {
-        let profile = try await profileService.fetchCurrentProfile()
-        onboardingCompleted = profile.onboardingCompleted
+    #endif
     }
-}
