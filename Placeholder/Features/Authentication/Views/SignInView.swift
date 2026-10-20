@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 struct SignInView: View {
-    @ObservedObject var auth = AuthViewModel()
+    @ObservedObject var auth: AuthViewModel
 
     var body: some View {
         ZStack {
@@ -34,6 +34,33 @@ struct SignInView: View {
                 .padding(.top, 75)
                 
                 Spacer()
+                
+                // MARK: Debug remove later
+                
+                #if DEBUG
+                Button {
+                    Task {
+                        await auth.signInWithTestAccount(
+                            email: "big@big.big",
+                            password: "bigbig"
+                        )
+                    }
+                } label: {
+                    Label(
+                        "Sign in to test account",
+                        systemImage: "person.crop.circle.badge.checkmark"
+                    )
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 320, height: 50)
+                    .background(
+                        Color.orange.opacity(0.85),
+                        in: RoundedRectangle(cornerRadius: 16)
+                    )
+                }
+                .disabled(auth.isLoading)
+                .padding(.horizontal)
+                #endif
                 
                 // Quick tour button
                 Button {

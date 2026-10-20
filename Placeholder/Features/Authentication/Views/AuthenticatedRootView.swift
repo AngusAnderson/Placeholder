@@ -12,7 +12,7 @@ struct AuthenticatedRootView: View {
         Group {
             if auth.session != nil {
                 if locationPermission.isAlwaysAuthorized {
-                    HomeView()
+                    HomeView(auth: auth)
                 } else {
                     LocationRequiredView(
                         locationPermission: locationPermission

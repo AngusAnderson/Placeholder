@@ -43,3 +43,15 @@ nonisolated struct OnboardingCompletionUpdate: Encodable, Sendable {
         case onboardingCompleted = "onboarding_completed"
     }
 }
+
+nonisolated struct ProfileDetailsUpdate: Encodable, Sendable {
+    let firstName: String
+    let surname: String
+    let username: String
+
+    enum CodingKeys: String, CodingKey {
+        case firstName = "first_name"
+        case surname
+        case username
+    }
+}

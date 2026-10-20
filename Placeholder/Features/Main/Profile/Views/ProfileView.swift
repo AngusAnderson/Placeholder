@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ProfileView: View {
     
+    @ObservedObject var auth: AuthViewModel
+    
     @Environment(UserProfileStore.self) private var userProfileStore
     
     @Environment(\.dismiss) private var dismiss
@@ -9,6 +11,12 @@ struct ProfileView: View {
     
     @State private var showUserSearch = false
     @State private var selectedPublicProfile: UserSearchResult?
+    
+    @State private var showLogoutConfirmation = false
+    @State private var isSigningOut = false
+
+    @State private var showLogoutError = false
+    @State private var logoutErrorMessage = ""
 
     var openSettings: () -> Void = {}
     
@@ -86,6 +94,31 @@ struct ProfileView: View {
                 profileID: user.id,
                 client: supabase
             )
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
+        .alert(
+            "Log out?",
+            isPresented: $showLogoutConfirmation
+        ) {
+            Button("Cancel", role: .cancel) {}
+
+            Button("Log Out", role: .destructive) {
+                Task {
+                    await logOut()
+                }
+            }
+        } message: {
+            Text("You’ll need to sign in again to access your account.")
+        }
+        .alert(
+            "Couldn’t Log Out",
+            isPresented: $showLogoutError
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(logoutErrorMessage)
         }
     }
 
@@ -183,10 +216,13 @@ struct ProfileView: View {
                     Label("Settings", systemImage: "gear")
                 }
 
-                Button {
-                    openSettings()
+                Button(role: .destructive) {
+                    showLogoutConfirmation = true
                 } label: {
-                    Label("Credits", systemImage: "info.circle")
+                    Label(
+                        "Log Out",
+                        systemImage: "rectangle.portrait.and.arrow.right"
+                    )
                 }
             } label: {
                 circularIcon("ellipsis")
@@ -197,6 +233,32 @@ struct ProfileView: View {
             .accessibilityLabel("Profile settings and credits")
         }
         .buttonStyle(.plain)
+    }
+    
+    // MARK: - Log out
+
+    @MainActor
+    private func logOut() async {
+        guard !isSigningOut else {
+            return
+        }
+
+        isSigningOut = true
+
+        defer {
+            isSigningOut = false
+        }
+
+        let didSignOut = await auth.signOut()
+
+        if didSignOut {
+            userProfileStore.clear()
+        } else {
+            logoutErrorMessage =
+                auth.errorMessage ?? "Please try again."
+
+            showLogoutError = true
+        }
     }
 
     private func circularIcon(_ symbol: String) -> some View {

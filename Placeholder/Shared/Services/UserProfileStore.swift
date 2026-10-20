@@ -19,6 +19,8 @@ final class UserProfileStore {
     
     private(set) var isSavingUsername = false
     private(set) var isSavingProfilePicture = false
+    
+    private(set) var isSavingProfileDetails = false
 
     var errorMessage: String?
 
@@ -230,5 +232,35 @@ final class UserProfileStore {
         profile = nil
         profileImage = nil
         errorMessage = nil
+    }
+    
+    func saveProfileDetails(
+        firstName: String,
+        surname: String,
+        username: String
+    ) async -> Bool {
+        guard !isSavingProfileDetails else {
+            return false
+        }
+
+        isSavingProfileDetails = true
+        errorMessage = nil
+
+        defer {
+            isSavingProfileDetails = false
+        }
+
+        do {
+            profile = try await profileService.saveProfileDetails(
+                firstName: firstName,
+                surname: surname,
+                username: username
+            )
+
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
     }
 }

@@ -32,4 +32,13 @@ struct FriendshipService {
             )
             .execute()
     }
+    
+    func fetchIncomingRequests() async throws -> [IncomingFriendRequest] {
+        let requests: [IncomingFriendRequest] = try await client
+            .rpc("get_incoming_friend_requests")
+            .execute()
+            .value
+
+        return requests
+    }
 }

@@ -108,22 +108,23 @@ struct ProfileService {
 
         let user = try await currentUser()
 
-        let isAvailable = try await isUsernameAvailable(
-            cleanedUsername,
-            excludingUserID: user.id
+        let update = UsernameUpdate(
+            username: cleanedUsername
         )
 
-        guard isAvailable else {
-            throw ProfileServiceError.usernameTaken
+        do {
+            try await supabase
+                .from("profiles")
+                .update(update)
+                .eq("id", value: user.id)
+                .execute()
+        } catch let error as PostgrestError {
+            if error.code == "23505" {
+                throw ProfileServiceError.usernameTaken
+            }
+
+            throw error
         }
-
-        let update = UsernameUpdate(username: cleanedUsername)
-
-        try await supabase
-            .from("profiles")
-            .update(update)
-            .eq("id", value: user.id)
-            .execute()
     }
 
     func isUsernameAvailable(
@@ -197,6 +198,65 @@ struct ProfileService {
             return try await supabase.auth.user()
         } catch {
             throw ProfileServiceError.noAuthenticatedUser
+        }
+    }
+    
+    // MARK: - Onboarding profile details
+
+    func saveProfileDetails(
+        firstName: String,
+        surname: String,
+        username: String
+    ) async throws -> Profile {
+        let cleanedFirstName = firstName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        let cleanedSurname = surname.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        let cleanedUsername = username
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !cleanedFirstName.isEmpty else {
+            throw ProfileServiceError.invalidFirstName
+        }
+
+        guard !cleanedSurname.isEmpty else {
+            throw ProfileServiceError.invalidSurname
+        }
+
+        guard isValidUsername(cleanedUsername) else {
+            throw ProfileServiceError.invalidUsername
+        }
+
+        let user = try await currentUser()
+
+        let update = ProfileDetailsUpdate(
+            firstName: cleanedFirstName,
+            surname: cleanedSurname,
+            username: cleanedUsername
+        )
+
+        do {
+            let updatedProfile: Profile = try await supabase
+                .from("profiles")
+                .update(update)
+                .eq("id", value: user.id)
+                .select()
+                .single()
+                .execute()
+                .value
+
+            return updatedProfile
+        } catch let error as PostgrestError {
+            if error.code == "23505" {
+                throw ProfileServiceError.usernameTaken
+            }
+
+            throw error
         }
     }
 }

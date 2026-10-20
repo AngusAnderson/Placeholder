@@ -102,35 +102,36 @@ struct PublicProfileView: View {
         profile = nil
         profileImage = nil
 
+        defer {
+            isLoading = false
+        }
+
+        let fetchedProfile: PublicProfile
+
         do {
-            let fetchedProfile = try await profileService.fetchPublicProfile(
+            fetchedProfile = try await profileService.fetchPublicProfile(
                 id: profileID
             )
 
-            profile = fetchedProfile
-
-            guard let path = fetchedProfile.profilePicturePath,
-                  !path.isEmpty
-            else {
-                isLoading = false
+            try Task.checkCancellation()
+        } catch {
+            guard !Task.isCancelled else {
                 return
             }
 
-            let imageURL = try await profilePictureService
-                .createSignedProfilePictureURL(path: path)
-
-            let (data, _) = try await URLSession.shared.data(from: imageURL)
-
-            guard let image = UIImage(data: data) else {
-                throw ProfilePictureServiceError.invalidImage
-            }
-
-            profileImage = image
-            isLoading = false
-        } catch {
+            // Only failure to fetch the profile blocks the whole screen.
             errorMessage = error.localizedDescription
-            isLoading = false
+            return
         }
+
+        profile = fetchedProfile
+
+        // The profile can now display while its image loads.
+        isLoading = false
+
+        await loadProfileImage(
+            path: fetchedProfile.profilePicturePath
+        )
     }
 
     // MARK: - Background
@@ -350,13 +351,46 @@ struct PublicProfileView: View {
         }
         .padding(28)
     }
-}
+    
+    @MainActor
+    private func loadProfileImage(path: String?) async {
+        guard let path, !path.isEmpty else {
+            return
+        }
 
-#Preview {
-    NavigationStack {
-        PublicProfileView(
-            profileID: UUID(),
-            client: supabase
-        )
+        do {
+            let imageURL = try await profilePictureService
+                .createSignedProfilePictureURL(path: path)
+
+            let (data, response) = try await URLSession.shared.data(
+                from: imageURL
+            )
+
+            try Task.checkCancellation()
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200..<300).contains(httpResponse.statusCode)
+            else {
+                throw URLError(.badServerResponse)
+            }
+
+            guard let image = UIImage(data: data) else {
+                throw ProfilePictureServiceError.invalidImage
+            }
+
+            profileImage = image
+        } catch {
+            guard !Task.isCancelled else {
+                return
+            }
+
+            // Keep the profile visible using its existing placeholder.
+            profileImage = nil
+
+            #if DEBUG
+            print("Public profile avatar failed:", error)
+            print("Avatar path:", path)
+            #endif
+        }
     }
 }

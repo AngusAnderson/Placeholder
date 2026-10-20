@@ -6,6 +6,8 @@ enum tabs {
 
 struct HomeView: View {
     @State private var selectedTab: tabs = .map
+    
+    @ObservedObject var auth: AuthViewModel
 
     @Environment(UserProfileStore.self) private var userProfileStore
 
@@ -45,7 +47,7 @@ struct HomeView: View {
 
             Tab("Profile", systemImage: "person", value: .profile) {
                 NavigationStack {
-                    ProfileView()    
+                    ProfileView(auth: auth)
                 }
             }
         }

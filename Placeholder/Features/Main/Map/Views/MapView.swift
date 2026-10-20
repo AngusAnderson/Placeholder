@@ -129,7 +129,9 @@ struct MapView: View {
             }
         }
         .sheet(isPresented: $showNotifications) {
-            NotificationsView()
+            NavigationStack {
+                NotificationsView(client: supabase)
+            }
         }
     }
 
