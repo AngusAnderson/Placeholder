@@ -85,8 +85,6 @@ struct MapView: View {
                 isPresented: $isShowingLookAround,
                 initialScene: lookAroundScene
             )
-            
-            // Team drop down menu.
             .overlay(alignment: .top) {
                 TeamSelectorView(
                     teams: teamModel.teams,
@@ -139,7 +137,6 @@ struct MapView: View {
             await teamModel.load()
         }
 
-        // Clear selection if the selected team is no longer available.
         .onChange(of: teamModel.teams.map(\.id)) { _, availableIDs in
             if let selectedTeamID,
                !availableIDs.contains(selectedTeamID) {

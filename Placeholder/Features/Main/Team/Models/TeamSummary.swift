@@ -49,3 +49,36 @@ nonisolated struct OwnerTeamOperationParameters: Encodable, Sendable {
     let requested_action: String
     let requested_name: String?
 }
+
+nonisolated struct TeamDetails: Decodable, Identifiable, Sendable {
+    let id: Int64
+    let name: String
+    let createdAt: Date
+    let members: [TeamMember]
+}
+
+nonisolated struct TeamMember: Decodable, Identifiable, Sendable {
+    let id: UUID
+    let firstName: String?
+    let surname: String?
+    let username: String?
+    let profilePicturePath: String?
+    let isOwner: Bool
+    let joinedAt: Date
+    let isCurrentUser: Bool
+    
+    var displayName: String {
+        let name = [firstName, surname]
+            .compactMap{ $0 }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        return name.isEmpty ? (username ?? "user") : name
+    }
+}
+
+nonisolated struct TeamMembershipParameters: Encodable, Sendable {
+    let requested_team_id: Int64
+    let requested_action: String
+    let requested_member_id: UUID?
+}
