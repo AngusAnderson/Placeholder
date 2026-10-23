@@ -35,6 +35,21 @@ struct SettingsView: View {
                         systemImage: "figure.walk"
                     )
                 }
+                
+                #if DEBUG
+                Section("Developer Tools") {
+                    Button {
+                        Task { @MainActor in
+                            await AutomaticActivityCoordinator.shared.synchronize()
+                        }
+                    } label: {
+                        Label(
+                            "Sync Health Activity Now",
+                            systemImage: "arrow.triangle.2.circlepath"
+                        )
+                    }
+                }
+                #endif
 
                 if let errorMessage = store.errorMessage {
                     Section {
