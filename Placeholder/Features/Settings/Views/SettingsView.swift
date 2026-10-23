@@ -40,13 +40,53 @@ struct SettingsView: View {
                 Section("Developer Tools") {
                     Button {
                         Task { @MainActor in
-                            await AutomaticActivityCoordinator.shared.synchronize()
+                            let coordinator = AutomaticActivityCoordinator.shared
+
+                            guard !coordinator.isBusy else {
+                                print("[Health Debug] Sync already running")
+                                return
+                            }
+
+                            print("[Health Debug] Starting sync")
+
+                            await coordinator.synchronize()
+
+                            if let error = coordinator.errorMessage {
+                                print("[Health Debug] Sync error:", error)
+                            } else {
+                                print(
+                                    "[Health Debug] Sync returned:",
+                                    coordinator.statusMessage
+                                )
+                            }
+
+                            // Request a map refresh even if sync reported an error,
+                            // so any previously stored progress can still be fetched.
+                            NotificationCenter.default.post(
+                                name: .relayActivityDidSync,
+                                object: nil
+                            )
                         }
                     } label: {
                         Label(
                             "Sync Health Activity Now",
                             systemImage: "arrow.triangle.2.circlepath"
                         )
+                    }
+                    .disabled(AutomaticActivityCoordinator.shared.isBusy)
+
+                    if AutomaticActivityCoordinator.shared.isBusy {
+                        ProgressView("Syncing Health activity…")
+                    }
+
+                    Text(AutomaticActivityCoordinator.shared.statusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    if let error = AutomaticActivityCoordinator.shared.errorMessage {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                     }
                 }
                 #endif

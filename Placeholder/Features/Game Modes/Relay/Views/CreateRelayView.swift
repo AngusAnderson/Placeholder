@@ -105,6 +105,7 @@ struct CreateRelayView: View {
         defer { isSaving = false }
         do {
             _ = try await service.startCustom(teamID: teamID, start: start, finish: finish)
+            await AutomaticActivityCoordinator.shared.synchronize()
             dismiss()
         } catch { errorMessage = error.localizedDescription }
     }

@@ -10,6 +10,7 @@ final class AutomaticActivityCoordinator {
     static let shared = AutomaticActivityCoordinator()
     private let reader = HealthActivityReader()
     private let service = AutomaticActivityService()
+    private let relayPartialService = RelayPartialActivityService()
     private var observers: [HKObserverQuery] = []
     private var userID: UUID?
     private var generation = UUID()
@@ -180,6 +181,19 @@ final class AutomaticActivityCoordinator {
                 try persist()
                 pendingCount = archive.pending.count
             }
+            try await relayPartialService.synchronize(
+                reader: reader,
+                userID: session.user.id
+            )
+
+            guard generation == token else {
+                return
+            }
+
+            NotificationCenter.default.post(
+                name: .relayActivityDidSync,
+                object: nil
+            )
             lastSync = Date()
             statusMessage = snapshots.isEmpty
                 ? "No readable eligible activity yet. This can mean no data or restricted Health access."

@@ -154,6 +154,23 @@ struct MapView: View {
                 .padding(.top, 15)
             }
         }
+        .relayCompletionPresentation(
+            client: supabase,
+            refreshToken: String(describing: selectedRelayGame)
+        )
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .relayActivityDidSync
+            )
+        ) { _ in
+            Task { @MainActor in
+                guard let teamID = selectedTeamID else {
+                    return
+                }
+
+                await relayModel.refresh(teamID: teamID)
+            }
+        }
 
         // Load the user's team memberships.
         .task {

@@ -10,10 +10,40 @@ struct AutomaticActivityService {
             expected_user_id: userID, requested_enabled: enabled
         )).execute().value
     }
-    func upload(_ buckets: [HealthActivityBucket], userID: UUID) async throws {
-        try await supabase.rpc("sync_health_buckets", params: BucketParameters(
-            expected_user_id: userID, requested_buckets: buckets
-        )).execute()
+//    func upload(_ buckets: [HealthActivityBucket], userID: UUID) async throws {
+//        try await supabase.rpc("sync_health_buckets", params: BucketParameters(
+//            expected_user_id: userID, requested_buckets: buckets
+//        )).execute()
+//    }
+    
+    func upload(
+        _ buckets: [HealthActivityBucket],
+        userID: UUID
+    ) async throws {
+        #if DEBUG
+        print("[Health Sync] Uploading \(buckets.count) buckets")
+        #endif
+
+        do {
+            _ = try await supabase.rpc(
+                "sync_health_buckets",
+                params: BucketParameters(
+                    expected_user_id: userID,
+                    requested_buckets: buckets
+                )
+            )
+            .execute()
+
+            #if DEBUG
+            print("[Health Sync] Upload RPC succeeded")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[Health Sync] Upload RPC failed: \(error)")
+            #endif
+
+            throw error
+        }
     }
 }
 nonisolated private struct SharingParameters: Encodable, Sendable {

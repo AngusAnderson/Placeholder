@@ -11,6 +11,8 @@ final class RelayViewModel {
     private(set) var isStarting = false
     private(set) var isLoading = false
     var errorMessage: String?
+    
+    private var refreshRequestID = UUID()
 
     func watch(teamID: Int64?) async {
         selectedTeamID = teamID
@@ -26,21 +28,69 @@ final class RelayViewModel {
     }
 
     func refresh(teamID: Int64) async {
-        guard selectedTeamID == teamID else { return }
+        guard selectedTeamID == teamID else {
+            return
+        }
+
+        let requestID = UUID()
+        refreshRequestID = requestID
+
         isLoading = true
-        defer { if selectedTeamID == teamID { isLoading = false } }
+
+        defer {
+            if selectedTeamID == teamID,
+               refreshRequestID == requestID {
+                isLoading = false
+            }
+        }
+
         do {
-            let fetchedGame = try await service.game(teamID: teamID)
-            let fetchedRoutes = try await service.routes()
+            let fetchedGame = try await service.game(
+                teamID: teamID
+            )
+
             try Task.checkCancellation()
-            guard selectedTeamID == teamID else { return }
+
+            guard selectedTeamID == teamID,
+                  refreshRequestID == requestID else {
+                return
+            }
+
             game = fetchedGame
-            routes = fetchedRoutes
             errorMessage = nil
         } catch {
-            guard !Task.isCancelled, selectedTeamID == teamID else { return }
-            game = nil
+            guard !Task.isCancelled,
+                  selectedTeamID == teamID,
+                  refreshRequestID == requestID else {
+                return
+            }
+
+            // Preserve the last successfully loaded game.
             errorMessage = error.localizedDescription
+            return
+        }
+
+        // Route presets are optional for refreshing map progress.
+        do {
+            let fetchedRoutes = try await service.routes()
+
+            try Task.checkCancellation()
+
+            guard selectedTeamID == teamID,
+                  refreshRequestID == requestID else {
+                return
+            }
+
+            routes = fetchedRoutes
+        } catch {
+            #if DEBUG
+            if !Task.isCancelled {
+                print(
+                    "[Relay] Route catalogue refresh failed:",
+                    error
+                )
+            }
+            #endif
         }
     }
 
