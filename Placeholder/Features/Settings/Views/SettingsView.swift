@@ -26,6 +26,15 @@ struct SettingsView: View {
                 nameSection
 
                 usernameSection
+                
+                NavigationLink {
+                    AutomaticActivitySettingsView()
+                } label: {
+                    Label(
+                        "Automatic Activity",
+                        systemImage: "figure.walk"
+                    )
+                }
 
                 if let errorMessage = store.errorMessage {
                     Section {

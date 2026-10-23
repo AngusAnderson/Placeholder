@@ -15,6 +15,9 @@ struct TeamDetailsView: View {
     @State private var memberToRemove: TeamMember?
     @State private var showRemoveConfirmation = false
     @State private var showLeaveConfirmation = false
+    
+    @State private var relayModel = RelayViewModel()
+    @State private var showCreateRelay = false
 
     private let service = TeamService()
 
@@ -138,6 +141,13 @@ struct TeamDetailsView: View {
                     )
                 }
             }
+            
+            TeamGameSection(
+                teamID: details.id,
+                isOwner: currentUserIsOwner,
+                model: relayModel,
+                showCreateRelay: $showCreateRelay
+            )
 
             Section("Members") {
                 ForEach(details.members) { member in
@@ -173,6 +183,16 @@ struct TeamDetailsView: View {
         .listStyle(.insetGrouped)
         .refreshable {
             await loadDetails()
+        }
+        .sheet(
+            isPresented: $showCreateRelay,
+            onDismiss: {
+                Task {
+                    await relayModel.refresh(teamID: details.id)
+                }
+            }
+        ) {
+            CreateRelayView(teamID: details.id)
         }
     }
 

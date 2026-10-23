@@ -67,5 +67,11 @@ struct RootView: View {
 
             locationPermission.refreshAuthorizationStatus()
         }
+
+        .modifier(
+            AutomaticActivityLifecycleModifier(
+                userID: auth.session?.user.id
+            )
+        )
     }
 }
