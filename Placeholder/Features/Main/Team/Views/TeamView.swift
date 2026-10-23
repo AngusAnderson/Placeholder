@@ -5,6 +5,7 @@ struct TeamView: View {
     @State private var model = TeamViewModel()
     @State private var teamName = ""
     @State private var teamToInviteTo: TeamSummary?
+    @State private var selectedTeamForDetails: TeamSummary?
     
     @State private var teamToRename: TeamSummary?
     @State private var renamedTeamName = ""
@@ -84,7 +85,17 @@ struct TeamView: View {
                 await model.load()
             }
             .sheet(item: $teamToInviteTo) { team in
-                inviteFriendsSheet(for: team)
+                InviteTeamFriendsView(team: team)
+            }
+            .sheet(
+                item: $selectedTeamForDetails,
+                onDismiss: {
+                    Task {
+                        await model.load()
+                    }
+                }
+            ) { team in
+                TeamDetailsView(teamID: team.id)
             }
             .alert(
                 "Rename Team",
@@ -181,25 +192,45 @@ struct TeamView: View {
 
     // MARK: - Teams
 
-    private func teamRow(_ team: TeamSummary) -> some View {
+    private func teamRow(
+        _ team: TeamSummary
+    ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: "person.3.fill")
-                    .foregroundStyle(.cyan)
+            HStack(spacing: 8) {
+                Button {
+                    selectedTeamForDetails = team
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.3.fill")
+                            .foregroundStyle(.cyan)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(team.name)
-                        .font(.headline)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(team.name)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
 
-                    Text(
-                        "\(team.memberCount)/8 members"
-                        + (team.isOwner ? " · Owner" : "")
+                            Text(
+                                "\(team.memberCount)/8 members"
+                                + (team.isOwner ? " · Owner" : "")
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
                     )
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
                 }
-
-                Spacer()
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens team details")
 
                 if team.isOwner {
                     Menu {
@@ -225,7 +256,12 @@ struct TeamView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(
+                                .system(
+                                    size: 18,
+                                    weight: .semibold
+                                )
+                            )
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
@@ -248,12 +284,14 @@ struct TeamView: View {
                     )
                 }
                 .buttonStyle(.bordered)
-                .disabled(model.isBusy || team.memberCount >= 8)
+                .disabled(
+                    model.isBusy || team.memberCount >= 8
+                )
             }
         }
         .padding(.vertical, 6)
     }
-
+    
     // MARK: - Incoming invitations
 
     private var invitationsSection: some View {
@@ -301,80 +339,6 @@ struct TeamView: View {
                     requested_invitation_id: invitation.id
                 )
             )
-        }
-    }
-
-    // MARK: - Friend picker
-
-    private func inviteFriendsSheet(
-        for team: TeamSummary
-    ) -> some View {
-        NavigationStack {
-            List {
-                errorSection
-
-                if model.friends.isEmpty {
-                    ContentUnavailableView(
-                        "No Friends Yet",
-                        systemImage: "person.2",
-                        description: Text(
-                            "Add friends before inviting them to a team."
-                        )
-                    )
-                } else {
-                    Section("Invite to \(team.name)") {
-                        ForEach(model.friends) { friend in
-                            Button {
-                                Task {
-                                    let saved = await model.perform(
-                                        TeamOperationParameters(
-                                            operation: "invite",
-                                            requested_team_id: team.id,
-                                            requested_friend_id: friend.id
-                                        )
-                                    )
-
-                                    if saved {
-                                        teamToInviteTo = nil
-                                    }
-                                }
-                            } label: {
-                                HStack {
-                                    VStack(
-                                        alignment: .leading,
-                                        spacing: 4
-                                    ) {
-                                        Text(friend.displayName)
-                                            .foregroundStyle(.primary)
-
-                                        if let username = friend.username {
-                                            Text("@\(username)")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-
-                                    Spacer()
-
-                                    Image(
-                                        systemName: "person.badge.plus"
-                                    )
-                                }
-                            }
-                            .disabled(model.isBusy)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Invite Friends")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        teamToInviteTo = nil
-                    }
-                }
-            }
         }
     }
 }

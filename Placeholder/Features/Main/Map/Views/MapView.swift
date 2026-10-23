@@ -27,6 +27,9 @@ struct MapView: View {
 
     @State private var hasCenteredOnUser = false
     
+    // Relay integrations - A.Anderson
+    @State private var relayModel = RelayViewModel()
+    
     // Team selector
     @State private var selectedTeamID: Int64?
     @State private var teamModel = TeamViewModel()
@@ -39,6 +42,19 @@ struct MapView: View {
         ZStack {
             Map(position: $cameraPosition) {
 
+                // Selected team's shared game.
+                if let game = selectedRelayGame,
+                   let geometry = selectedRelayGeometry {
+                    RelayMapContent(
+                        geometry: geometry,
+                        startName: game.startName,
+                        finishName: game.finishName,
+                        creditedMetres: game.creditedMetres,
+                        targetMetres: game.targetMetres
+                    )
+                }
+
+                // Actual device location.
                 if let coordinate = userLocation.coordinate {
                     Annotation(
                         "You",
@@ -51,6 +67,7 @@ struct MapView: View {
                     }
                 }
 
+                // Separate personal-directions route, if used.
                 if let route {
                     MapPolyline(route)
                         .stroke(
@@ -85,8 +102,8 @@ struct MapView: View {
                 isPresented: $isShowingLookAround,
                 initialScene: lookAroundScene
             )
-            
-            // Team drop down menu.
+
+            // Team selector.
             .overlay(alignment: .top) {
                 TeamSelectorView(
                     teams: teamModel.teams,
@@ -107,6 +124,8 @@ struct MapView: View {
                 .padding(.top, 14)
                 .padding(.horizontal, 16)
             }
+
+            // Notifications button.
             .overlay(alignment: .topLeading) {
                 Group {
                     if #available(iOS 26.0, *) {
@@ -135,12 +154,45 @@ struct MapView: View {
                 .padding(.top, 15)
             }
         }
+        .relayCompletionPresentation(
+            client: supabase,
+            refreshToken: String(describing: selectedRelayGame)
+        )
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .relayActivityDidSync
+            )
+        ) { _ in
+            Task { @MainActor in
+                guard let teamID = selectedTeamID else {
+                    return
+                }
+
+                await relayModel.refresh(teamID: teamID)
+            }
+        }
+
+        // Load the user's team memberships.
         .task {
             await teamModel.load()
         }
 
-        // Clear selection if the selected team is no longer available.
-        .onChange(of: teamModel.teams.map(\.id)) { _, availableIDs in
+        // Load/poll the game belonging to the selected team.
+        .task(id: selectedTeamID) {
+            await relayModel.watch(
+                teamID: selectedTeamID
+            )
+        }
+
+        // Frame a new game once, not every time its distance changes.
+        .onChange(of: selectedRelayGame?.id) { _, _ in
+            fitSelectedRelay()
+        }
+
+        // Clear selections that are no longer memberships.
+        .onChange(
+            of: teamModel.teams.map(\.id)
+        ) { _, availableIDs in
             if let selectedTeamID,
                !availableIDs.contains(selectedTeamID) {
                 self.selectedTeamID = nil
@@ -152,7 +204,7 @@ struct MapView: View {
             isPresented: $showTeams,
             onDismiss: {
                 Task {
-                    await teamModel.load()
+                    await refreshTeamsAndGame()
                 }
             }
         ) {
@@ -164,7 +216,7 @@ struct MapView: View {
             isPresented: $showNotifications,
             onDismiss: {
                 Task {
-                    await teamModel.load()
+                    await refreshTeamsAndGame()
                 }
             }
         ) {
@@ -176,6 +228,7 @@ struct MapView: View {
 
     private func centerOnUserIfNeeded() {
         guard
+            selectedRelayGame == nil,
             !hasCenteredOnUser,
             let coordinate = userLocation.coordinate
         else {
@@ -268,5 +321,87 @@ struct MapView: View {
                 .frame(width: 32, height: 32)
         }
         .accessibilityLabel("Open notifications")
+    }
+    
+    func coordinates(from polyline: MKPolyline) -> [CLLocationCoordinate2D] {
+        var result = Array(
+            repeating: CLLocationCoordinate2D(latitude: 0, longitude: 0),
+            count: polyline.pointCount
+        )
+        
+        polyline.getCoordinates(
+            &result,
+            range: NSRange(
+                location: 0,
+                length: polyline.pointCount
+            )
+        )
+        
+        return result
+    }
+    
+    // MARK: - Selected team's game
+
+    private var selectedRelayGame: RelayGame? {
+        guard let selectedTeamID,
+              relayModel.selectedTeamID == selectedTeamID
+        else {
+            return nil
+        }
+
+        return relayModel.game
+    }
+
+    private var selectedRelayGeometry: RelayRouteGeometry? {
+        guard let game = selectedRelayGame else {
+            return nil
+        }
+
+        return RelayRouteGeometry(
+            coordinates: game.coordinates.map(\.coordinate)
+        )
+    }
+    
+    // MARK: - Relay camera
+
+    private func fitSelectedRelay() {
+        guard let geometry = selectedRelayGeometry,
+              geometry.coordinates.count >= 2
+        else {
+            return
+        }
+
+        let line = MKPolyline(
+            coordinates: geometry.coordinates,
+            count: geometry.coordinates.count
+        )
+
+        hasCenteredOnUser = true
+
+        cameraPosition = .rect(
+            line.boundingMapRect
+        )
+    }
+
+    // MARK: - Refresh teams and current game
+
+    @MainActor
+    private func refreshTeamsAndGame() async {
+        await teamModel.load()
+
+        guard let selectedTeamID else {
+            return
+        }
+
+        guard teamModel.teams.contains(
+            where: { $0.id == selectedTeamID }
+        ) else {
+            self.selectedTeamID = nil
+            return
+        }
+
+        await relayModel.refresh(
+            teamID: selectedTeamID
+        )
     }
 }
