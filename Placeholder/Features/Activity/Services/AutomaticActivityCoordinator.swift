@@ -89,7 +89,9 @@ final class AutomaticActivityCoordinator {
             UserDefaults.standard.set(true, forKey: "hasConfiguredAutomaticHealthActivity")
             installObservers()
             try await reader.enableDelivery()
-            statusMessage = "Enabled. Eligible activity starts at the next 15-minute boundary. Read access is controlled in Health."
+            statusMessage =
+                "Automatic activity enabled. Eligible Relay activity is checked during sync. "
+                + "Read access is controlled in Health."
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -115,91 +117,307 @@ final class AutomaticActivityCoordinator {
     }
 
     // Safe to call from foreground lifecycle, HealthKit observer, or unlock callback.
+    // Safe to call from foreground lifecycle,
+    // HealthKit observer, or unlock callback.
     func synchronize() async {
-        guard !isBusy else { return }
-        do { try requireUnlocked() } catch { return }
+        guard !isBusy else {
+            return
+        }
+
+        do {
+            try requireUnlocked()
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+
         isBusy = true
-        let initialGeneration = generation
-        defer { if generation == initialGeneration { isBusy = false } }
+
+        // This can change if we configure the authenticated account below.
+        var operationGeneration = generation
+
+        defer {
+            if generation == operationGeneration {
+                isBusy = false
+            }
+        }
+
         do {
             let session = try await supabase.auth.session
+
+            guard generation == operationGeneration,
+                  !Task.isCancelled else {
+                return
+            }
+
+            // Configure and continue this pass instead of requiring another
+            // foreground callback or button press.
             if userID != session.user.id {
                 configure(userID: session.user.id)
-                // A root/foreground pass will retry after configuring the account.
-                return
+
+                operationGeneration = generation
+                isBusy = true
             }
-            let token = generation
+
+            let token = operationGeneration
+
             archive = try loadArchive(for: session.user.id)
             publishPreference()
-            guard archive.preference.enabled else { return }
+
+            // The remote preference is authoritative.
+            // Do not return early just because the cached archive says off.
             let remote = try await service.preference()
-            guard generation == token else { return }
-            guard remote.enabled else {
-                archive.preference = remote
-                archive.pending = [:]
-                try persist()
-                publishPreference()
+
+            guard generation == token,
+                  !Task.isCancelled else {
                 return
             }
+
             if remote.cutoffEpoch != archive.preference.cutoffEpoch {
                 archive.acknowledged = [:]
                 archive.pending = [:]
             }
+
             archive.preference = remote
+
+            if !remote.enabled {
+                archive.pending = [:]
+            }
+
             publishPreference()
-            errorMessage = nil
-
-            let snapshots = try await reader.snapshots(cutoffEpoch: remote.cutoffEpoch)
-            guard generation == token else { return }
-            for bucket in snapshots {
-                let old = archive.acknowledged[bucket.key]
-                let queued = archive.pending[bucket.key]
-                let oldMetres = max(old?.metres ?? 0, queued?.metres ?? 0)
-                let oldSteps = max(old?.steps ?? 0, queued?.steps ?? 0)
-                if bucket.metres > oldMetres || bucket.steps > oldSteps {
-                    archive.pending[bucket.key] = HealthActivityBucket(
-                        startEpoch: bucket.startEpoch, endEpoch: bucket.endEpoch,
-                        measuredUntilEpoch: max(bucket.measuredUntilEpoch, queued?.measuredUntilEpoch ?? 0),
-                        metres: max(bucket.metres, oldMetres), steps: max(bucket.steps, oldSteps))
-                }
-            }
-            // Keep unacknowledged work, prune old ACK metadata only.
-            let oldest = Date().timeIntervalSince1970 - 8 * 86400
-            archive.acknowledged = archive.acknowledged.filter { $0.value.endEpoch >= oldest }
             try persist()
-            pendingCount = archive.pending.count
-            // Bounded network work per callback. Remaining work stays durably queued.
-            for _ in 0..<2 {
-                let batch = Array(archive.pending.values.sorted { $0.startEpoch < $1.startEpoch }.prefix(32))
-                if batch.isEmpty { break }
-                try await service.upload(batch, userID: session.user.id)
-                guard generation == token else { return }
-                for bucket in batch {
-                    archive.acknowledged[bucket.key] = bucket
-                    archive.pending.removeValue(forKey: bucket.key)
-                }
-                try persist()
-                pendingCount = archive.pending.count
-            }
-            try await relayPartialService.synchronize(
-                reader: reader,
-                userID: session.user.id
-            )
 
-            guard generation == token else {
+            guard remote.enabled else {
+                errorMessage = nil
+                statusMessage = "Automatic activity sharing is off."
                 return
             }
 
-            NotificationCenter.default.post(
-                name: .relayActivityDidSync,
-                object: nil
-            )
-            lastSync = Date()
-            statusMessage = snapshots.isEmpty
-                ? "No readable eligible activity yet. This can mean no data or restricted Health access."
-                : "Activity reconciled. Team totals update after eligible uploads."
+            errorMessage = nil
+
+            var failures: [String] = []
+
+            var partialPassSucceeded = false
+            var ordinaryPassSucceeded = false
+            var ordinaryBucketCount: Int?
+
+            // MARK: First partial interval
+
+            // With ExactStartCorrection.sql installed, this does not require
+            // an ordinary source bucket or a nonempty pending upload queue.
+            do {
+                try Task.checkCancellation()
+
+                try await relayPartialService.synchronize(
+                    reader: reader,
+                    userID: session.user.id
+                )
+
+                guard generation == token,
+                      !Task.isCancelled else {
+                    return
+                }
+
+                partialPassSucceeded = true
+
+                #if DEBUG
+                print("[Health Sync] Partial Relay pass finished")
+                #endif
+            } catch {
+                guard generation == token,
+                      !Task.isCancelled else {
+                    return
+                }
+
+                failures.append(
+                    "Partial Relay sync: \(error.localizedDescription)"
+                )
+
+                #if DEBUG
+                print("[Health Sync] Partial Relay pass failed:", error)
+                #endif
+            }
+
+            // MARK: Ordinary activity buckets
+
+            // Attempt this even if the partial pass failed.
+            do {
+                try Task.checkCancellation()
+
+                let snapshots = try await reader.snapshots(
+                    cutoffEpoch: remote.cutoffEpoch
+                )
+
+                guard generation == token,
+                      !Task.isCancelled else {
+                    return
+                }
+
+                ordinaryBucketCount = snapshots.count
+
+                for bucket in snapshots {
+                    let old = archive.acknowledged[bucket.key]
+                    let queued = archive.pending[bucket.key]
+
+                    let oldMetres = max(
+                        old?.metres ?? 0,
+                        queued?.metres ?? 0
+                    )
+
+                    let oldSteps = max(
+                        old?.steps ?? 0,
+                        queued?.steps ?? 0
+                    )
+
+                    if bucket.metres > oldMetres ||
+                        bucket.steps > oldSteps {
+                        archive.pending[bucket.key] = HealthActivityBucket(
+                            startEpoch: bucket.startEpoch,
+                            endEpoch: bucket.endEpoch,
+                            measuredUntilEpoch: max(
+                                bucket.measuredUntilEpoch,
+                                queued?.measuredUntilEpoch ?? 0
+                            ),
+                            metres: max(bucket.metres, oldMetres),
+                            steps: max(bucket.steps, oldSteps)
+                        )
+                    }
+                }
+
+                // Keep unacknowledged work.
+                // Prune only old acknowledgement metadata.
+                let oldest =
+                    Date().timeIntervalSince1970 - 8 * 86400
+
+                archive.acknowledged =
+                    archive.acknowledged.filter {
+                        $0.value.endEpoch >= oldest
+                    }
+
+                try persist()
+                pendingCount = archive.pending.count
+
+                // Bound network work per callback.
+                for _ in 0..<2 {
+                    try Task.checkCancellation()
+
+                    let batch = Array(
+                        archive.pending.values
+                            .sorted {
+                                $0.startEpoch < $1.startEpoch
+                            }
+                            .prefix(32)
+                    )
+
+                    if batch.isEmpty {
+                        break
+                    }
+
+                    try await service.upload(
+                        batch,
+                        userID: session.user.id
+                    )
+
+                    guard generation == token,
+                          !Task.isCancelled else {
+                        return
+                    }
+
+                    for bucket in batch {
+                        archive.acknowledged[bucket.key] = bucket
+                        archive.pending.removeValue(
+                            forKey: bucket.key
+                        )
+                    }
+
+                    try persist()
+                    pendingCount = archive.pending.count
+                }
+
+                ordinaryPassSucceeded = true
+
+                #if DEBUG
+                print(
+                    "[Health Sync] Ordinary pass finished.",
+                    "Buckets read:", snapshots.count,
+                    "Pending:", archive.pending.count
+                )
+                #endif
+            } catch {
+                guard generation == token,
+                      !Task.isCancelled else {
+                    return
+                }
+
+                failures.append(
+                    "Ordinary activity sync: \(error.localizedDescription)"
+                )
+
+                #if DEBUG
+                print("[Health Sync] Ordinary pass failed:", error)
+                #endif
+            }
+
+            guard generation == token,
+                  !Task.isCancelled else {
+                return
+            }
+
+            pendingCount = archive.pending.count
+
+            // Either pass may have committed game progress.
+            // Request a refresh even if the other pass failed.
+            if partialPassSucceeded || ordinaryPassSucceeded {
+                lastSync = Date()
+
+                NotificationCenter.default.post(
+                    name: .relayActivityDidSync,
+                    object: nil
+                )
+            }
+
+            var messages: [String] = []
+
+            if partialPassSucceeded {
+                messages.append("Partial Relay windows checked.")
+            }
+
+            if let ordinaryBucketCount {
+                messages.append(
+                    "Ordinary buckets read: \(ordinaryBucketCount)."
+                )
+            }
+
+            if pendingCount > 0 {
+                messages.append(
+                    "Pending ordinary uploads: \(pendingCount)."
+                )
+            }
+
+            if failures.isEmpty {
+                errorMessage = nil
+                statusMessage = messages.joined(separator: " ")
+            } else {
+                errorMessage = failures.joined(separator: "\n")
+
+                statusMessage = messages.isEmpty
+                    ? "Sync could not finish. See the error below."
+                    : messages.joined(separator: " ")
+                        + " Some work failed; see the error below."
+            }
         } catch {
-            if generation == initialGeneration { errorMessage = error.localizedDescription }
+            guard generation == operationGeneration,
+                  !Task.isCancelled else {
+                return
+            }
+
+            errorMessage = error.localizedDescription
+            statusMessage =
+                "Could not prepare activity sync. See the error below."
+
+            #if DEBUG
+            print("[Health Sync] Preparation failed:", error)
+            #endif
         }
     }
 
