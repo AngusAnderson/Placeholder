@@ -27,7 +27,9 @@ struct MapView: View {
 
     @State private var hasCenteredOnUser = false
     
-    // Relay integrations - A.Anderson
+    @State private var mapPageState = MapPageState.shared
+    
+    // Relay integrations
     @State private var relayModel = RelayViewModel()
     
     // Team selector
@@ -98,10 +100,14 @@ struct MapView: View {
                 MapPitchToggle()
             }
             .mapStyle(.standard)
+            .onMapCameraChange(frequency: .onEnd) { context in
+                mapPageState.region = context.region
+            }
             .lookAroundViewer(
                 isPresented: $isShowingLookAround,
                 initialScene: lookAroundScene
             )
+            
 
             // Team selector.
             .overlay(alignment: .top) {

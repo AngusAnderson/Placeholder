@@ -1,5 +1,5 @@
-import SwiftUI
 import Foundation
+import SwiftUI
 
 struct LeaderboardView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -16,42 +16,32 @@ struct LeaderboardView: View {
     }
     private var podiumEntries: [RelayLeaderboard.Entry] {
         guard !dynamicTypeSize.isAccessibilitySize else { return [] }
-        return Array((model.leaderboard?.entries ?? []).filter { $0.creditedMetres > 0 }.prefix(3))
+        return Array((model.leaderboard?.entries ?? [])
+            .filter { $0.creditedMetres > 0 }.prefix(3))
     }
     private var remainingEntries: [RelayLeaderboard.Entry] {
         let shown = Set(podiumEntries.map(\.id))
         return (model.leaderboard?.entries ?? []).filter { !shown.contains($0.id) }
     }
+    private var hasGame: Bool { model.leaderboard?.game != nil }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                RelayLeaderboardStyle.background.ignoresSafeArea()
-                LinearGradient(
-                    colors: [Color.cyan.opacity(0.14), Color.clear, Color.clear],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ).ignoresSafeArea()
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 22) {
+            MapPageScaffold {
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 20) {
                         header
                         if let error = teamModel.errorMessage {
-                            errorCard(error, retry: { Task { await teamModel.load() } })
+                            errorCard(error) { Task { await teamModel.load() } }
                         }
                         if selectedTeamID == nil {
-                            ContentUnavailableView(
-                                "Choose a Team", systemImage: "person.3",
-                                description: Text("Select a team to see who is moving its Relay forward.")
-                            ).frame(maxWidth: .infinity)
+                            emptyCard("Choose a team", symbol: "person.3",
+                                message: "Select a team to see its Relay contributions.")
                         } else if let error = model.errorMessage {
-                            errorCard(error, retry: { Task { await refreshLeaderboard() } })
+                            errorCard(error) { Task { await refreshLeaderboard() } }
                         } else if let board = model.leaderboard {
                             if let game = board.game {
                                 RelayJourneySummary(game: game)
-                                Picker("Leaderboard section", selection: $selectedPane) {
-                                    ForEach(LeaderboardPane.allCases, id: \.self) { pane in
-                                        Text(pane.rawValue).tag(pane)
-                                    }
-                                }.pickerStyle(.segmented)
                                 if selectedPane == .standings {
                                     standings(board)
                                 } else {
@@ -59,41 +49,49 @@ struct LeaderboardView: View {
                                 }
                                 if abs(board.attributionDifference) > 0.01 {
                                     Label(
-                                        "The game total differs from the available member records by \(RelayLeaderboardStyle.distance(abs(board.attributionDifference))).",
+                                        "The game total differs from available member records by \(RelayLeaderboardStyle.distance(abs(board.attributionDifference))).",
                                         systemImage: "exclamationmark.triangle"
-                                    ).font(.footnote).foregroundStyle(.orange)
+                                    )
+                                    .font(.footnote).foregroundStyle(.orange)
+                                    .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                                    .mapContentPanel()
                                 }
                                 footer
                             } else {
-                                ContentUnavailableView(
-                                    "No Relay Yet", systemImage: "flag.checkered",
-                                    description: Text("Start a Relay in Team Details. Your team's contributors will appear here.")
-                                ).frame(maxWidth: .infinity)
+                                emptyCard("No Relay yet", symbol: "flag.checkered",
+                                    message: "Start a Relay in Team Details. Your team's contributions will appear here.")
                             }
                         } else {
                             ProgressView("Loading contributions…")
-                                .frame(maxWidth: .infinity).padding(.vertical, 50)
+                                .frame(maxWidth: .infinity).padding(30)
+                                .mapContentPanel()
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 28)
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
                     .frame(maxWidth: 640)
                     .frame(maxWidth: .infinity)
                 }
+                .contentMargins(
+                    .bottom,
+                    44,
+                    for: .scrollContent
+                )
                 .refreshable {
                     await teamModel.load()
                     validateSelection()
                     await refreshLeaderboard()
                 }
             }
-            .navigationTitle("Leaderboard")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(RelayLeaderboardStyle.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .task {
-                await teamModel.load()
-                if selectedTeamID == nil { selectedTeamID = teamModel.teams.first?.id }
+                if teamModel.teams.isEmpty {
+                    await teamModel.load()
+                }
+                if selectedTeamID == nil {
+                    selectedTeamID = teamModel.teams.first?.id
+                }
             }
             .task(id: selectedTeamID) { await model.watch(teamID: selectedTeamID) }
             .onChange(of: teamModel.teams.map(\.id)) { _, _ in validateSelection() }
@@ -112,65 +110,87 @@ struct LeaderboardView: View {
                 }
             }) { TeamView() }
         }
-        .preferredColorScheme(.dark)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("EVERY METRE MATTERS")
-                        .font(.system(size: 10, weight: .bold)).tracking(1.5)
-                        .foregroundStyle(.cyan)
-                    Text("Move together.\nRise together.")
-                        .font(.system(.title, design: .rounded, weight: .bold))
-                        .fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: 24) {
+            Text("Leaderboard")
+                .font(.largeTitle.weight(.bold))
+                .frame(maxWidth: .infinity)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, 8)
+
+            MapGlassControlGroup {
+                VStack(alignment: .leading, spacing: 12) {
+                    TeamSelectorView(
+                        teams: teamModel.teams,
+                        isLoading: teamModel.isLoading,
+                        hasLoaded: teamModel.hasLoaded,
+                        errorMessage: teamModel.errorMessage,
+                        selection: $selectedTeamID,
+                        hint: "Choose team",
+                        maxWidth: .infinity,
+                        onManageTeams: { showTeams = true },
+                        onRetry: { Task { await teamModel.load() } }
+                    )
+                    if hasGame { paneSelector }
                 }
-                Spacer(minLength: 8)
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 36)).foregroundStyle(.cyan)
-                    .frame(width: 72, height: 72)
-                    .background(Color.cyan.opacity(0.08), in: RoundedRectangle(cornerRadius: 24))
-                    .accessibilityHidden(true)
-            }
-            HStack {
-                TeamSelectorView(
-                    teams: teamModel.teams, isLoading: teamModel.isLoading,
-                    hasLoaded: teamModel.hasLoaded, errorMessage: teamModel.errorMessage,
-                    selection: $selectedTeamID, hint: "Choose team", maxWidth: 220,
-                    onManageTeams: { showTeams = true },
-                    onRetry: { Task { await teamModel.load() } }
-                )
-                Spacer(minLength: 4)
-                Text("THIS RELAY").font(.system(size: 9, weight: .bold)).tracking(0.5)
-                    .foregroundStyle(.secondary).lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    private var paneSelector: some View {
+        HStack(spacing: 4) {
+            ForEach(LeaderboardPane.allCases, id: \.self) { pane in
+                Button {
+                    selectedPane = pane
+                } label: {
+                    Text(pane.rawValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selectedPane == pane ? Color.primary : Color.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background {
+                            if selectedPane == pane {
+                                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                    .fill(Color.cyan.opacity(0.18))
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedPane == pane ? .isSelected : [])
+            }
+        }
+        .padding(5)
+        .mapControlGlass(cornerRadius: 20)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Leaderboard section")
     }
 
     @ViewBuilder
     private func standings(_ board: RelayLeaderboard) -> some View {
-        if !podiumEntries.isEmpty {
-            RelayLeaderboardPodium(entries: podiumEntries)
-        }
-        HStack {
-            Text(podiumEntries.isEmpty ? "Team standings" : "The rest of the team")
-                .font(.headline)
-            Spacer()
-            Text("\(board.entries.count) contributors / members")
-                .font(.caption2).foregroundStyle(.secondary)
-        }
-        if board.entries.allSatisfy({ $0.creditedMetres <= 0 }) {
-            Text("The podium is waiting. Eligible activity will start the rankings.")
-                .font(.footnote).foregroundStyle(.secondary)
-        }
+        if !podiumEntries.isEmpty { RelayLeaderboardPodium(entries: podiumEntries) }
         if !remainingEntries.isEmpty {
-            LazyVStack(spacing: 12) {
-                ForEach(remainingEntries) { entry in RelayStandingRow(entry: entry) }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(podiumEntries.isEmpty ? "Team standings" : "More contributors")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(board.entries.count) listed")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if board.entries.allSatisfy({ $0.creditedMetres <= 0 }) {
+                    Text("Eligible activity will start the rankings.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                LazyVStack(spacing: 10) {
+                    ForEach(remainingEntries) { entry in RelayStandingRow(entry: entry) }
+                }
             }
-        } else if !podiumEntries.isEmpty {
-            Text("Everyone with a recorded contribution is on the podium.")
-                .font(.footnote).foregroundStyle(.secondary)
+        } else if board.entries.isEmpty {
+            emptyCard("No contributions yet", symbol: "figure.walk",
+                message: "Eligible synced activity will appear here.")
         }
     }
 
@@ -178,25 +198,23 @@ struct LeaderboardView: View {
     private func yourStats(_ board: RelayLeaderboard) -> some View {
         if let entry = board.entries.first(where: \.isCurrentUser) {
             RelayStandingRow(entry: entry)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 12) {
                 RelayStatTile(title: "Your contribution", value: RelayLeaderboardStyle.distance(entry.creditedMetres), symbol: "figure.walk")
                 RelayStatTile(title: "Your rank", value: entry.rank > 0 ? "#\(entry.rank)" : "Not ranked", symbol: "trophy")
                 RelayStatTile(title: "Share of team distance", value: String(format: "%.1f%%", entry.share * 100), symbol: "chart.pie")
                 RelayStatTile(title: "Members / contributors", value: String(board.entries.count), symbol: "person.3")
             }
-            Text("These numbers are for this Relay only. Distances appear after eligible activity has synced and been credited.")
-                .font(.footnote).foregroundStyle(.secondary)
         } else {
-            ContentUnavailableView("No Personal Entry", systemImage: "person.crop.circle",
-                description: Text("Refresh to load your contribution for this team."))
+            emptyCard("No personal entry", symbol: "person.crop.circle",
+                message: "Refresh to load your contribution for this team.")
         }
     }
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Rankings use credited distance, not raw steps. Equal distances share a rank.")
+            Text("Credited distance for this Relay. Equal distances share a rank.")
                 .font(.caption).foregroundStyle(.secondary)
-            HStack {
+            HStack(spacing: 8) {
                 if model.isLoading { ProgressView().controlSize(.small) }
                 if let updated = model.lastUpdated {
                     Text("Updated \(updated, style: .time)")
@@ -204,16 +222,26 @@ struct LeaderboardView: View {
                 }
             }
         }
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .mapContentPanel(cornerRadius: 20)
     }
     private func errorCard(_ message: String, retry: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Couldn't refresh", systemImage: "exclamationmark.triangle")
                 .font(.headline).foregroundStyle(.orange)
             Text(message).font(.footnote).foregroundStyle(.secondary)
-            Button("Try Again", action: retry).buttonStyle(.bordered)
+            if #available(iOS 26.0, *) {
+                Button("Try again", action: retry).buttonStyle(.glass)
+            } else {
+                Button("Try again", action: retry).buttonStyle(.bordered)
+            }
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .background(RelayLeaderboardStyle.card, in: RoundedRectangle(cornerRadius: 20))
+        .mapContentPanel()
+    }
+    private func emptyCard(_ title: String, symbol: String, message: String) -> some View {
+        ContentUnavailableView(title, systemImage: symbol, description: Text(message))
+            .frame(maxWidth: .infinity).mapContentPanel()
     }
     @MainActor
     private func refreshLeaderboard() async {

@@ -13,19 +13,34 @@ final class RelayLeaderboardViewModel {
     var errorMessage: String?
 
     func watch(teamID: Int64?) async {
+        let changedTeam = selectedTeamID != teamID
+
         requestID = UUID()
         selectedTeamID = teamID
-        leaderboard = nil
-        errorMessage = nil
-        lastUpdated = nil
         isLoading = false
-        guard let teamID else { return }
-        while !Task.isCancelled && selectedTeamID == teamID {
+
+        if changedTeam {
+            leaderboard = nil
+            errorMessage = nil
+            lastUpdated = nil
+        }
+
+        guard let teamID else {
+            return
+        }
+
+        while !Task.isCancelled,
+              selectedTeamID == teamID {
             await refresh(teamID: teamID)
-            do { try await Task.sleep(for: .seconds(15)) }
-            catch { return }
+
+            do {
+                try await Task.sleep(for: .seconds(15))
+            } catch {
+                return
+            }
         }
     }
+    
     func refresh(teamID: Int64) async {
         guard selectedTeamID == teamID else { return }
         let token = UUID()
@@ -43,7 +58,6 @@ final class RelayLeaderboardViewModel {
             errorMessage = nil
         } catch {
             guard !Task.isCancelled, selectedTeamID == teamID, requestID == token else { return }
-            // Avoid retaining another team's/account's stale data after access changes.
             leaderboard = nil
             errorMessage = error.localizedDescription
         }
